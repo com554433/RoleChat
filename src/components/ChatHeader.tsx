@@ -6,7 +6,7 @@ interface Props {
 }
 
 export default function ChatHeader({ onSettingsClick, onSkillClick }: Props) {
-  const { roleConfig, avatarDataUrl, isLoading, isTtsEnabled, toggleTts, voiceSampleDataUrl } = useChatStore();
+  const { roleConfig, avatarDataUrl, isLoading, isTtsEnabled, toggleTts } = useChatStore();
 
   const name = roleConfig?.name || '未加载角色';
   const status = isLoading ? '正在输入...' : '在线';

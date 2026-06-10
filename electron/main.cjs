@@ -1,15 +1,15 @@
-const { app, BrowserWindow, shell } = require('electron');
+const { app, BrowserWindow, shell, session } = require('electron');
 const path = require('path');
 
 let mainWindow = null;
 
 function createWindow() {
   mainWindow = new BrowserWindow({
-    width: 420,
-    height: 780,
-    minWidth: 360,
-    minHeight: 600,
-    title: 'RoleChat - AI角色扮演',
+    width: 960,
+    height: 720,
+    minWidth: 640,
+    minHeight: 480,
+    title: 'RoleChat - 二次元角色扮演',
     icon: path.join(__dirname, '..', 'public', 'favicon.svg'),
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),
@@ -19,6 +19,17 @@ function createWindow() {
     frame: true,
     autoHideMenuBar: true,
   });
+
+  // 授权 clipboard-read 权限，允许 navigator.clipboard.readText()
+  session.defaultSession.setPermissionRequestHandler(
+    (_webContents, permission, callback) => {
+      if (permission === 'clipboard-read' || permission === 'clipboard-sanitized-write') {
+        callback(true);
+      } else {
+        callback(false);
+      }
+    },
+  );
 
   // 加载构建产物
   const distPath = path.join(__dirname, '..', 'dist', 'index.html');

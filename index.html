@@ -7,10 +7,67 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="theme-color" content="#ededed" />
-    <title>RoleChat - AI角色扮演</title>
+    <title>RoleChat - 二次元角色扮演</title>
   </head>
   <body style="margin:0;padding:0">
     <div id="root"></div>
+    <div id="splash">
+      <div class="splash-inner">
+        <div class="splash-icon">
+          <img src="./favicon.svg" alt="RoleChat" width="80" height="80" />
+        </div>
+        <div class="splash-title">RoleChat</div>
+        <div class="splash-sub">二次元角色扮演</div>
+        <div class="splash-dots"><span></span><span></span><span></span></div>
+      </div>
+    </div>
+    <style>
+      #splash {
+        position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+        background: #ededed;
+        display: flex; align-items: center; justify-content: center;
+        z-index: 99999;
+        transition: opacity 0.4s ease-out, visibility 0.4s ease-out;
+      }
+      #splash.hide { opacity: 0; visibility: hidden; pointer-events: none; }
+      .splash-inner {
+        display: flex; flex-direction: column; align-items: center;
+        animation: splash-enter 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+      }
+      @keyframes splash-enter {
+        from { opacity: 0; transform: scale(0.85) translateY(20px); }
+        to   { opacity: 1; transform: scale(1) translateY(0); }
+      }
+      .splash-icon {
+        margin-bottom: 20px;
+        animation: splash-bounce 1.6s ease-in-out infinite;
+      }
+      @keyframes splash-bounce {
+        0%, 100% { transform: translateY(0); }
+        50% { transform: translateY(-8px); }
+      }
+      .splash-title {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        font-size: 32px; font-weight: 700; color: #333;
+        letter-spacing: 2px; margin-bottom: 6px;
+      }
+      .splash-sub {
+        font-size: 14px; color: #999; letter-spacing: 4px;
+        margin-bottom: 28px;
+      }
+      .splash-dots { display: flex; gap: 8px; }
+      .splash-dots span {
+        width: 8px; height: 8px; border-radius: 50%;
+        background: #07c160;
+        animation: splash-dot 1.2s ease-in-out infinite;
+      }
+      .splash-dots span:nth-child(2) { animation-delay: 0.2s; }
+      .splash-dots span:nth-child(3) { animation-delay: 0.4s; }
+      @keyframes splash-dot {
+        0%, 40%, 100% { transform: scale(0.6); opacity: 0.4; }
+        20% { transform: scale(1); opacity: 1; }
+      }
+    </style>
     <script type="module" src="./src/main.tsx"></script>
   </body>
 </html>

@@ -1,21 +1,24 @@
 import { useState, useRef, useCallback } from 'react';
-import { useChatStore } from '../store/chatStore';
+import { useChatStore, useMessages } from '../store/chatStore';
 import { callLLM, callVoiceClone } from '../services/api';
 
 let abortController: AbortController | null = null;
 
+function uid(prefix = '') {
+  return prefix + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 9);
+}
+
 export default function ChatInput() {
   const [text, setText] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const messages = useMessages();
   const {
     roleConfig,
-    messages,
     addMessage,
     updateLastMessage,
     setLoading,
-    setStreamingContent,
-    setStreamingReasoning,
     apiSettings,
+    nonTokenPlan,
     isLoading,
     isTtsEnabled,
     voiceSampleDataUrl,
@@ -36,7 +39,8 @@ export default function ChatInput() {
   const autoTtsPlay = async (msgId: string) => {
     // 延迟一下等 store 更新完成
     await new Promise((r) => setTimeout(r, 100));
-    const latestMsgs = useChatStore.getState().messages;
+    const state = useChatStore.getState();
+    const latestMsgs = state.skillChats[state.activeSkillId || ''] || [];
     const targetMsg = latestMsgs.find((m) => m.id === msgId);
     if (!targetMsg || !targetMsg.content.trim()) return;
 
@@ -50,14 +54,18 @@ export default function ChatInput() {
         voiceMatch[2],
         voiceMatch[1],
         apiSettings,
+        nonTokenPlan,
         roleConfig?.voice_style,
       );
 
       updateMessageAudio(msgId, audioUrl);
 
       // 尝试自动播放
+      setMessagePlaying(msgId, true);
       const audio = new Audio(audioUrl);
+      audio.onended = () => setMessagePlaying(msgId, false);
       audio.play().catch(() => {
+        setMessagePlaying(msgId, false);
         console.log('[ChatInput] 自动播放被浏览器阻止，点击消息上的朗读按钮即可');
       });
     } catch (err) {
@@ -78,7 +86,7 @@ export default function ChatInput() {
     if (!trimmed || isLoading) return;
 
     const userMsg = {
-      id: Date.now().toString(),
+      id: uid('u'),
       role: 'user' as const,
       content: trimmed,
       timestamp: Date.now(),
@@ -104,13 +112,14 @@ export default function ChatInput() {
     // 2. 开场白：如果是首次对话且有greeting，自动发送
     const isFirstMsg = messages.length === 0;
     if (isFirstMsg && roleConfig?.greeting) {
-      // 先把开场白作为 assistant 消息显示
-      const greetId = (Date.now() + 2).toString();
+      // 先把开场白作为 assistant 消息显示，并加入 API 上下文
+      const greetId = uid('g');
+      apiMessages.push({ role: 'assistant', content: roleConfig.greeting });
       addMessage({
         id: greetId,
         role: 'assistant',
         content: roleConfig.greeting,
-        timestamp: Date.now() + 1,
+        timestamp: Date.now(),
       });
     }
 
@@ -124,7 +133,7 @@ export default function ChatInput() {
     }
 
     // 添加 assistant 占位
-    const assistantId = (Date.now() + 1).toString();
+    const assistantId = uid('a');
     addMessage({
       id: assistantId,
       role: 'assistant',
@@ -140,6 +149,7 @@ export default function ChatInput() {
       await callLLM(
         apiMessages,
         apiSettings,
+        nonTokenPlan,
         (content, reasoning) => {
           updateLastMessage(content, reasoning);
         },

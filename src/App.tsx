@@ -1,9 +1,11 @@
+import { useEffect } from 'react';
 import { useChatStore } from './store/chatStore';
 import ChatHeader from './components/ChatHeader';
 import MessageList from './components/MessageList';
 import ChatInput from './components/ChatInput';
 import SettingsPanel from './components/SettingsPanel';
 import SkillImporter from './components/SkillImporter';
+import SkillSidebar from './components/SkillSidebar';
 
 export default function App() {
   const {
@@ -12,34 +14,59 @@ export default function App() {
     toggleSettings,
     toggleSkillImporter,
     backgroundUrl,
+    theme,
+    activeSkillId,
   } = useChatStore();
 
+  // 同步 theme 到 <html data-theme>
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+  }, [theme]);
+
   return (
-    <div className="chat-container">
-      {/* 聊天背景 */}
-      {backgroundUrl && (
-        <div className="chat-bg-layer">
-          <img src={backgroundUrl} alt="" />
-        </div>
-      )}
+    <div className="app-shell">
+      {/* 左侧角色列表 (微信风格) */}
+      <SkillSidebar onImportClick={toggleSkillImporter} />
 
-      {/* 顶部栏 */}
-      <ChatHeader
-        onSettingsClick={toggleSettings}
-        onSkillClick={toggleSkillImporter}
-      />
+      {/* 右侧聊天区 */}
+      <div className="chat-container">
+        {/* 聊天背景 */}
+        {backgroundUrl && (
+          <div className="chat-bg-layer">
+            <img src={backgroundUrl} alt="" />
+          </div>
+        )}
 
-      {/* 消息列表 */}
-      <MessageList />
+        {/* 顶部栏 */}
+        <ChatHeader
+          onSettingsClick={toggleSettings}
+          onSkillClick={toggleSkillImporter}
+        />
 
-      {/* 输入区 */}
-      <ChatInput />
+        {/* 消息列表 */}
+        {activeSkillId ? (
+          <MessageList />
+        ) : (
+          <div className="message-list">
+            <div className="empty-state">
+              <div className="empty-icon">💬</div>
+              <div className="empty-text">
+                请先导入一个角色<br />
+                点击左侧 + 按钮或右上角 + 导入
+              </div>
+            </div>
+          </div>
+        )}
 
-      {/* 设置面板 */}
-      {isSettingsOpen && <SettingsPanel onClose={toggleSettings} />}
+        {/* 输入区 — 有角色才显示 */}
+        {activeSkillId && <ChatInput />}
 
-      {/* Skill 导入面板 */}
-      {isSkillImporterOpen && <SkillImporter onClose={toggleSkillImporter} />}
+        {/* 设置面板 */}
+        {isSettingsOpen && <SettingsPanel onClose={toggleSettings} />}
+
+        {/* Skill 导入面板 */}
+        {isSkillImporterOpen && <SkillImporter onClose={toggleSkillImporter} />}
+      </div>
     </div>
   );
 }

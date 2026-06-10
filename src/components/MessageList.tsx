@@ -1,21 +1,23 @@
 import { useEffect, useRef } from 'react';
-import { useChatStore } from '../store/chatStore';
+import { useChatStore, useMessages, useCurrentSkill } from '../store/chatStore';
 import MessageBubble from './MessageBubble';
+import type { ChatMessage } from '../types';
 
 export default function MessageList() {
-  const { messages, isLoading, streamingReasoning, roleConfig } = useChatStore();
+  const messages = useMessages();
+  const roleConfig = useCurrentSkill()?.config;
+  const isLoading = useChatStore((s) => s.isLoading);
   const bottomRef = useRef<HTMLDivElement>(null);
-  const listRef = useRef<HTMLDivElement>(null);
 
   // 自动滚动到底部
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages, streamingReasoning, isLoading]);
+  }, [messages, isLoading]);
 
   // 空状态
   if (messages.length === 0 && !isLoading) {
     return (
-      <div className="message-list" ref={listRef}>
+      <div className="message-list">
         <div className="empty-state">
           <div className="empty-icon">💬</div>
           <div className="empty-text">
@@ -30,8 +32,8 @@ export default function MessageList() {
   }
 
   return (
-    <div className="message-list" ref={listRef}>
-      {messages.map((msg) => (
+    <div className="message-list">
+      {messages.map((msg: ChatMessage) => (
         <MessageBubble key={msg.id} message={msg} />
       ))}
 

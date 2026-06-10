@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useRef, useState, useEffect } from 'react';
 import { useChatStore } from '../store/chatStore';
 
 interface Props {
@@ -16,10 +16,14 @@ export default function SettingsPanel({ onClose }: Props) {
     setVoiceSampleDataUrl,
     apiSettings,
     updateApiSettings,
+    nonTokenPlan,
+    updateNonTokenPlan,
     showThinking,
     setShowThinking,
     isTtsEnabled,
     toggleTts,
+    theme,
+    toggleTheme,
     setRoleConfig,
     clearChat,
   } = useChatStore();
@@ -27,8 +31,18 @@ export default function SettingsPanel({ onClose }: Props) {
   const avatarInputRef = useRef<HTMLInputElement>(null);
   const bgInputRef = useRef<HTMLInputElement>(null);
   const voiceInputRef = useRef<HTMLInputElement>(null);
+  const [copiedKey, setCopiedKey] = useState(false);
+  const [copiedUrl, setCopiedUrl] = useState(false);
+  const [copiedNtpKey, setCopiedNtpKey] = useState(false);
+  const [copiedNtpUrl, setCopiedNtpUrl] = useState(false);
   const [editName, setEditName] = useState(roleConfig?.name || '');
   const [editSystemPrompt, setEditSystemPrompt] = useState(roleConfig?.system_prompt || '');
+
+  // sync when roleConfig changes (e.g. switching skills)
+  useEffect(() => {
+    setEditName(roleConfig?.name || '');
+    setEditSystemPrompt(roleConfig?.system_prompt || '');
+  }, [roleConfig?.name, roleConfig?.system_prompt]);
 
   // 处理文件读取为 Data URL
   const handleFileToDataUrl = (
@@ -43,6 +57,43 @@ export default function SettingsPanel({ onClose }: Props) {
     const reader = new FileReader();
     reader.onload = (e) => callback(e.target?.result as string);
     reader.readAsDataURL(file);
+  };
+
+  // 安全剪贴板 API（Electron 原生 > 浏览器 navigator）
+  const clip = () => {
+    const w = window as any;
+    return w.electronAPI?.clipboard ?? null;
+  };
+
+  // 复制
+  const handleCopy = (text: string, setter: (v: boolean) => void) => {
+    if (!text) return;
+    const c = clip();
+    const p = c
+      ? Promise.resolve(c.writeText(text))
+      : navigator.clipboard.writeText(text);
+    p.then(() => {
+      setter(true);
+      setTimeout(() => setter(false), 1500);
+    });
+  };
+
+  // 从剪贴板粘贴（兼容同步/异步，双重兜底）
+  const handlePaste = (onFill: (v: string) => void) => {
+    const c = clip();
+    if (c) {
+      // Electron clipboard: 同步返回字符串
+      try {
+        const text = c.readText();
+        if (text) { onFill(text); return; }
+      } catch { /* 降级到 navigator */ }
+    }
+    // 浏览器 / 权限降级: 异步 Promise
+    navigator.clipboard.readText().then((text: string) => {
+      if (text) onFill(text);
+    }).catch(() => {
+      // clipboard API 不可用，静默失败
+    });
   };
 
   // 保存角色名称和 system prompt
@@ -241,24 +292,195 @@ export default function SettingsPanel({ onClose }: Props) {
               🤖 模型设置
             </h3>
 
+            {/* ---------- MiMo 按量计费开关 ---------- */}
+            <div
+              className="toggle-row"
+              style={{
+                padding: '12px',
+                border: nonTokenPlan.enabled ? '1px solid #6366f1' : '1px solid #e0e0e0',
+                borderRadius: '8px',
+                background: nonTokenPlan.enabled ? '#f5f3ff' : '#f9f9f9',
+                marginBottom: '16px',
+              }}
+            >
+              <div>
+                <div className="toggle-label" style={{ fontSize: '14px' }}>
+                  💳 MiMo 按量计费 API
+                </div>
+                <div className="toggle-desc">
+                  使用 MiMo 按量计费账号（与 TokenPlan 独立配置）
+                </div>
+              </div>
+              <div
+                className={`toggle-switch ${nonTokenPlan.enabled ? 'active' : ''}`}
+                onClick={() => updateNonTokenPlan({ enabled: !nonTokenPlan.enabled })}
+              />
+            </div>
+
+            {/* ---------- 按量计费配置 ---------- */}
+            {nonTokenPlan.enabled && (
+              <>
+                <div style={{
+                  marginBottom: '8px',
+                  padding: '6px 10px',
+                  background: '#eef2ff',
+                  borderRadius: '6px',
+                  fontSize: '12px',
+                  color: '#3730a3',
+                }}>
+                  认证方式为 <code style={{background:'#c7d2fe', padding:'1px 4px', borderRadius:'3px', fontSize:'11px'}}>api-key</code> 头
+                </div>
+
+                <div className="setting-label">API Key（按量计费）</div>
+                <div style={{ display: 'flex', gap: '6px' }}>
+                  <input
+                    className="setting-input"
+                    type="password"
+                    value={nonTokenPlan.apiKey}
+                    onChange={(e) => updateNonTokenPlan({ apiKey: e.target.value })}
+                    placeholder="sk-mimo-xxxx"
+                    style={{ flex: 1 }}
+                  />
+                  <button
+                    className="copy-key-btn"
+                    onClick={() => handlePaste((v) => updateNonTokenPlan({ apiKey: v }))}
+                    title="从剪贴板粘贴"
+                  >
+                    粘贴
+                  </button>
+                  <button
+                    className={`copy-key-btn ${copiedNtpKey ? 'copied' : ''}`}
+                    onClick={() => handleCopy(nonTokenPlan.apiKey, setCopiedNtpKey)}
+                    title="复制"
+                  >
+                    {copiedNtpKey ? '已复制' : '复制'}
+                  </button>
+                </div>
+
+                <div className="setting-label" style={{ marginTop: '12px' }}>
+                  API Base URL（按量计费）
+                </div>
+                <div style={{ display: 'flex', gap: '6px' }}>
+                  <input
+                    className="setting-input"
+                    value={nonTokenPlan.baseUrl}
+                    onChange={(e) => updateNonTokenPlan({ baseUrl: e.target.value })}
+                    placeholder="https://api.xiaomimimo.com/v1/chat/completions"
+                    style={{ flex: 1 }}
+                  />
+                  <button
+                    className="copy-key-btn"
+                    onClick={() => handlePaste((v) => updateNonTokenPlan({ baseUrl: v }))}
+                    title="从剪贴板粘贴"
+                  >
+                    粘贴
+                  </button>
+                  <button
+                    className={`copy-key-btn ${copiedNtpUrl ? 'copied' : ''}`}
+                    onClick={() => handleCopy(nonTokenPlan.baseUrl, setCopiedNtpUrl)}
+                    title="复制"
+                  >
+                    {copiedNtpUrl ? '已复制' : '复制'}
+                  </button>
+                </div>
+
+                <div className="setting-label" style={{ marginTop: '12px' }}>
+                  模型名称
+                </div>
+                <input
+                  className="setting-input"
+                  value={nonTokenPlan.model}
+                  onChange={(e) => updateNonTokenPlan({ model: e.target.value })}
+                  placeholder="mimo-v2.5"
+                />
+
+                <div className="setting-label" style={{ marginTop: '12px' }}>
+                  TTS 语音模型
+                </div>
+                <input
+                  className="setting-input"
+                  value={nonTokenPlan.ttsModel}
+                  onChange={(e) => updateNonTokenPlan({ ttsModel: e.target.value })}
+                  placeholder="mimo-v2.5-tts-voiceclone"
+                />
+
+                <div className="setting-toggle-row" style={{ marginTop: '12px' }}>
+                  <label className="setting-toggle-label" htmlFor="tts-use-tokenplan">
+                    🎤 TTS 沿用 TokenPlan 配置
+                  </label>
+                  <label className="toggle-switch">
+                    <input
+                      id="tts-use-tokenplan"
+                      type="checkbox"
+                      checked={nonTokenPlan.ttsUseTokenPlan}
+                      onChange={(e) => updateNonTokenPlan({ ttsUseTokenPlan: e.target.checked })}
+                    />
+                    <span className="toggle-slider"></span>
+                  </label>
+                </div>
+                {nonTokenPlan.ttsUseTokenPlan && (
+                  <div style={{ fontSize: '11px', color: 'var(--accent-color)', marginTop: '4px' }}>
+                    语音克隆为 MiMo 特有功能，TTS 将使用上方 TokenPlan 配置的 API Key 和 URL
+                  </div>
+                )}
+              </>
+            )}
+
+            {/* ---------- TokenPlan 配置（原有） ---------- */}
+            {!nonTokenPlan.enabled && (
+              <>
             <div className="setting-label">API Key</div>
-            <input
-              className="setting-input"
-              type="password"
-              value={apiSettings.apiKey}
-              onChange={(e) => updateApiSettings({ apiKey: e.target.value })}
-              placeholder="输入 MiMo API Key (sk-xxxx)"
-            />
+            <div style={{ display: 'flex', gap: '6px' }}>
+              <input
+                className="setting-input"
+                type="password"
+                value={apiSettings.apiKey}
+                onChange={(e) => updateApiSettings({ apiKey: e.target.value })}
+                placeholder="输入 MiMo API Key (sk-xxxx)"
+                style={{ flex: 1 }}
+              />
+              <button
+                className="copy-key-btn"
+                onClick={() => handlePaste((v) => updateApiSettings({ apiKey: v }))}
+                title="从剪贴板粘贴"
+              >
+                粘贴
+              </button>
+              <button
+                className={`copy-key-btn ${copiedKey ? 'copied' : ''}`}
+                onClick={() => handleCopy(apiSettings.apiKey, setCopiedKey)}
+                title="复制 API Key"
+              >
+                {copiedKey ? '已复制' : '复制'}
+              </button>
+            </div>
 
             <div className="setting-label" style={{ marginTop: '12px' }}>
               API Base URL
             </div>
-            <input
-              className="setting-input"
-              value={apiSettings.baseUrl}
-              onChange={(e) => updateApiSettings({ baseUrl: e.target.value })}
-              placeholder="https://api.xiaomimimo.com/v1"
-            />
+            <div style={{ display: 'flex', gap: '6px' }}>
+              <input
+                className="setting-input"
+                value={apiSettings.baseUrl}
+                onChange={(e) => updateApiSettings({ baseUrl: e.target.value })}
+                placeholder="https://api.xiaomimimo.com/v1/chat/completions"
+                style={{ flex: 1 }}
+              />
+              <button
+                className="copy-key-btn"
+                onClick={() => handlePaste((v) => updateApiSettings({ baseUrl: v }))}
+                title="从剪贴板粘贴"
+              >
+                粘贴
+              </button>
+              <button
+                className={`copy-key-btn ${copiedUrl ? 'copied' : ''}`}
+                onClick={() => handleCopy(apiSettings.baseUrl, setCopiedUrl)}
+                title="复制 Base URL"
+              >
+                {copiedUrl ? '已复制' : '复制'}
+              </button>
+            </div>
 
             <div className="setting-label" style={{ marginTop: '12px' }}>
               语言模型
@@ -304,6 +526,8 @@ export default function SettingsPanel({ onClose }: Props) {
                 onClick={() => setShowThinking(!showThinking)}
               />
             </div>
+            </>
+            )}
           </div>
 
           <div className="divider" />
@@ -313,6 +537,21 @@ export default function SettingsPanel({ onClose }: Props) {
             <h3 style={{ fontSize: '15px', fontWeight: 500, marginBottom: '12px' }}>
               ⚙️ 其他
             </h3>
+
+            <div className="toggle-row">
+              <div>
+                <div className="toggle-label">
+                  {theme === 'dark' ? '🌙 深色模式' : '☀️ 浅色模式'}
+                </div>
+                <div className="toggle-desc">切换界面配色风格</div>
+              </div>
+              <div
+                className={`toggle-switch ${theme === 'dark' ? 'active' : ''}`}
+                onClick={toggleTheme}
+              />
+            </div>
+
+            <div style={{ height: '12px' }} />
             <button
               style={{
                 width: '100%',
@@ -328,6 +567,22 @@ export default function SettingsPanel({ onClose }: Props) {
             >
               清空聊天记录
             </button>
+          </div>
+
+          <div className="divider" />
+
+          {/* ====== 关于 ====== */}
+          <div className="setting-group">
+            <h3 style={{ fontSize: '15px', fontWeight: 500, marginBottom: '12px' }}>
+              ℹ️ 关于
+            </h3>
+            <div style={{ fontSize: '13px', color: '#888', lineHeight: '1.8' }}>
+              <div>RoleChat 二次元角色扮演</div>
+              <div>版本 1.0.0</div>
+              <div style={{ marginTop: '4px' }}>
+                基于 Electron + React + TypeScript 构建
+              </div>
+            </div>
           </div>
 
           {/* 配置说明 */}

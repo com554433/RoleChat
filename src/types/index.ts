@@ -35,3 +35,13 @@ export interface ApiSettings {
   ttsModel: string;           // mimo-v2.5-tts-voiceclone
   enableThinking: boolean;
 }
+
+// 按量计费 API 配置（与 TokenPlan 独立的账号）  
+export interface NonTokenPlanConfig {
+  enabled: boolean;
+  apiKey: string;
+  baseUrl: string;
+  model: string;
+  ttsModel: string;
+  ttsUseTokenPlan: boolean;    // 按量计费模式下 TTS 是否沿用 TokenPlan（默认 true，因为语音克隆是 MiMo 特有功能）
+}

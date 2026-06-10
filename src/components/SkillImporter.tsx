@@ -1,5 +1,6 @@
-import { useRef, useState } from 'react';
+import { useRef, useState, useEffect } from 'react';
 import { useChatStore } from '../store/chatStore';
+import { generateSkill } from '../services/api';
 import type { RoleConfig, SkillImport } from '../types';
 
 interface Props {
@@ -7,11 +8,85 @@ interface Props {
 }
 
 export default function SkillImporter({ onClose }: Props) {
-  const { setCurrentSkill, currentSkill, roleConfig } = useChatStore();
+  const { addSkill, skills, apiSettings, nonTokenPlan } = useChatStore();
   const folderInputRef = useRef<HTMLInputElement>(null);
   const configInputRef = useRef<HTMLInputElement>(null);
   const [importing, setImporting] = useState(false);
   const [statusText, setStatusText] = useState('');
+
+  // ====== AI 生成状态 ======
+  const [characterName, setCharacterName] = useState('');
+  const [workName, setWorkName] = useState('');
+  const [generating, setGenerating] = useState(false);
+  const [generatedText, setGeneratedText] = useState('');
+  const [generatedConfig, setGeneratedConfig] = useState<RoleConfig | null>(null);
+  const [genError, setGenError] = useState('');
+  const abortRef = useRef<AbortController | null>(null);
+  const previewRef = useRef<HTMLPreElement | null>(null);
+
+  useEffect(() => {
+    return () => { abortRef.current?.abort(); };
+  }, []);
+
+  useEffect(() => {
+    if (generatedText && previewRef.current) {
+      previewRef.current.scrollTop = previewRef.current.scrollHeight;
+    }
+  }, [generatedText]);
+
+  // ====== AI 生成角色 ======
+  const handleAIGenerate = async () => {
+    if (!characterName.trim() || !workName.trim()) {
+      setGenError('请填写角色名和作品名');
+      return;
+    }
+    setGenError('');
+    setGeneratedText('');
+    setGeneratedConfig(null);
+    setGenerating(true);
+
+    const abort = new AbortController();
+    abortRef.current = abort;
+
+    try {
+      const config = await generateSkill(
+        characterName.trim(),
+        workName.trim(),
+        apiSettings,
+        nonTokenPlan,
+        (chunk) => setGeneratedText((p) => p + chunk),
+        abort.signal,
+      );
+      setGeneratedConfig(config);
+    } catch (err) {
+      if ((err as Error).name === 'AbortError') {
+        setGenError('已取消生成');
+      } else {
+        setGenError((err as Error).message || '生成失败');
+      }
+    } finally {
+      setGenerating(false);
+      abortRef.current = null;
+    }
+  };
+
+  const handleAICancel = () => {
+    abortRef.current?.abort();
+  };
+
+  const handleAIImport = () => {
+    if (!generatedConfig) return;
+    const skill: SkillImport = {
+      id: Date.now().toString(),
+      folderName: generatedConfig.name,
+      config: generatedConfig,
+    };
+    addSkill(skill);
+    setStatusText(`已导入角色: ${generatedConfig.name}`);
+    setGeneratedConfig(null);
+    setGeneratedText('');
+    setTimeout(() => onClose(), 500);
+  };
 
   // ====== 方式1: 选择 skill 文件夹 ======
   const handleFolderSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -24,7 +99,7 @@ export default function SkillImporter({ onClose }: Props) {
     try {
       const skill = await parseSkillFromFiles(files);
       if (skill) {
-        setCurrentSkill(skill);
+        addSkill(skill);
         setStatusText(`成功导入角色: ${skill.config.name}`);
         setTimeout(() => onClose(), 800);
       }
@@ -63,7 +138,7 @@ export default function SkillImporter({ onClose }: Props) {
         config,
       };
 
-      setCurrentSkill(skill);
+      addSkill(skill);
       setStatusText(`成功导入角色: ${config.name}`);
       setTimeout(() => onClose(), 800);
     } catch (err) {
@@ -84,7 +159,7 @@ export default function SkillImporter({ onClose }: Props) {
         greeting: '你好！很高兴认识你~',
       },
     };
-    setCurrentSkill(defaultSkill);
+    addSkill(defaultSkill);
     setStatusText('已创建默认角色，可在设置中修改');
 
     // 如果有当前角色，也更新
@@ -102,35 +177,29 @@ export default function SkillImporter({ onClose }: Props) {
           </button>
         </div>
         <div className="panel-body">
-          {/* 已加载的角色 */}
-          {currentSkill && (
-            <div
-              className="skill-card"
-              style={{ background: '#e8f8ee', cursor: 'default' }}
-            >
-              {currentSkill.avatarDataUrl ? (
-                <img src={currentSkill.avatarDataUrl} alt="" className="skill-avatar" />
-              ) : (
-                <div
-                  className="skill-avatar"
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    color: 'white',
-                    fontWeight: 600,
-                  }}
-                >
-                  {currentSkill.config.name.charAt(0)}
+          {/* 已加载的角色列表 */}
+          {skills.length > 0 && (
+            <div className="setting-group">
+              <h3 style={{ fontSize: '15px', fontWeight: 500, marginBottom: '8px' }}>
+                📋 已加载角色 ({skills.length})
+              </h3>
+              {skills.map((skill) => (
+                <div key={skill.id} className="skill-card" style={{ background: '#e8f8ee', cursor: 'default' }}>
+                  {skill.avatarDataUrl ? (
+                    <img src={skill.avatarDataUrl} alt="" className="skill-avatar" />
+                  ) : (
+                    <div className="skill-avatar" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontWeight: 600 }}>
+                      {skill.config.name.charAt(0)}
+                    </div>
+                  )}
+                  <div>
+                    <div className="skill-name">{skill.config.name}</div>
+                    <div className="skill-meta">
+                      {skill.voiceSampleDataUrl ? '含语音样本' : '无语音样本'} · {skill.avatarDataUrl ? '有头像' : '无头像'}
+                    </div>
+                  </div>
                 </div>
-              )}
-              <div>
-                <div className="skill-name">{currentSkill.config.name}</div>
-                <div className="skill-meta">
-                  {currentSkill.voiceSampleDataUrl ? '含语音样本' : '无语音样本'} ·{' '}
-                  {currentSkill.avatarDataUrl ? '有头像' : '无头像'}
-                </div>
-              </div>
+              ))}
             </div>
           )}
 
@@ -324,38 +393,131 @@ export default function SkillImporter({ onClose }: Props) {
                 创建默认角色
               </button>
             </div>
+
+            {/* 方式4: AI 蒸馏生成 */}
+            <div style={{ marginTop: '24px' }}>
+              <div className="setting-label" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <span style={{ display: 'inline-flex', width: '22px', height: '22px', borderRadius: '50%', background: '#667eea', color: '#fff', alignItems: 'center', justifyContent: 'center', fontSize: '12px' }}>CSP</span>
+                方式四：AI 一键蒸馏角色
+              </div>
+              <div style={{ fontSize: '12px', color: '#999', margin: '4px 0 10px' }}>
+                输入角色名 + 作品名，AI 自动生成完整 Skill（与聊天共用同款 LLM）
+              </div>
+
+              <div style={{ fontSize: '11px', color: '#aaa', marginBottom: '10px', fontStyle: 'italic' }}>
+                 该功能原创作者：dy平台 浅w · 361034112
+               </div>
+
+              <div style={{ display: 'flex', gap: '8px', marginBottom: '10px' }}>
+                <input
+                  className="setting-input"
+                  style={{ flex: 1 }}
+                  placeholder="角色名，如: 芙宁娜"
+                  value={characterName}
+                  onChange={(e) => { setCharacterName(e.target.value); setGenError(''); }}
+                  disabled={generating}
+                />
+                <input
+                  className="setting-input"
+                  style={{ flex: 1 }}
+                  placeholder="作品名，如: 原神"
+                  value={workName}
+                  onChange={(e) => { setWorkName(e.target.value); setGenError(''); }}
+                  disabled={generating}
+                />
+              </div>
+
+              {genError && (
+                <div className="animate-shake" style={{ padding: '8px 12px', background: '#fff0f0', border: '1px solid #ffcccc', borderRadius: '6px', color: '#cc3333', fontSize: '13px', marginBottom: '10px' }}>
+                  {genError}
+                </div>
+              )}
+
+              {/* 流式预览 */}
+              {generatedText && !generatedConfig && (
+                <div className="animate-fade-in" style={{ background: '#f8f9fa', border: '1px solid #e8e8e8', borderRadius: '8px', marginBottom: '10px', overflow: 'hidden' }}>
+                  <div style={{ padding: '4px 10px', background: '#eee', fontSize: '11px', color: '#888', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    生成预览
+                    <span className="typing-dots"><span></span><span></span><span></span></span>
+                  </div>
+                  <pre ref={previewRef} style={{ padding: '10px', margin: 0, fontSize: '12px', lineHeight: 1.6, color: '#444', whiteSpace: 'pre-wrap', wordBreak: 'break-word', maxHeight: '260px', overflowY: 'auto' }}>{generatedText}</pre>
+                </div>
+              )}
+
+              {/* 生成结果 */}
+              {generatedConfig && (
+                <div className="animate-fade-in" style={{ padding: '10px', background: '#f0faf0', border: '1px solid #cceecc', borderRadius: '8px', marginBottom: '10px' }}>
+                  <div style={{ fontSize: '14px', color: '#333', marginBottom: '6px' }}>
+                    <strong>{generatedConfig.name}</strong>
+                    {generatedConfig.voice_style && <span style={{ marginLeft: '8px', padding: '2px 8px', background: '#e8f0ff', borderRadius: '4px', fontSize: '11px', color: '#667eea' }}>{generatedConfig.voice_style}</span>}
+                  </div>
+                  {generatedConfig.greeting && <div style={{ fontSize: '12px', color: '#666', lineHeight: 1.5 }}>{generatedConfig.greeting}</div>}
+                  <div style={{ fontSize: '11px', color: '#999', marginTop: '4px' }}>prompt {(generatedConfig.system_prompt || '').length} 字</div>
+                </div>
+              )}
+
+              {/* 按钮 */}
+              {!generating && !generatedConfig && (
+                <button
+                  className="skill-gen-btn"
+                  style={{
+                    width: '100%',
+                    padding: '10px',
+                    border: 'none',
+                    borderRadius: '8px',
+                    background: 'linear-gradient(135deg, #667eea, #764ba2)',
+                    color: '#fff',
+                    cursor: 'pointer',
+                    fontSize: '14px',
+                    fontWeight: 500,
+                  }}
+                  onClick={handleAIGenerate}
+                >
+                  🪄 生成角色 Skill
+                </button>
+              )}
+
+              {generating && (
+                <button
+                  className="skill-gen-btn animate-pulse-glow"
+                  style={{
+                    width: '100%',
+                    padding: '10px',
+                    border: 'none',
+                    borderRadius: '8px',
+                    background: '#ff4757',
+                    color: '#fff',
+                    cursor: 'pointer',
+                    fontSize: '14px',
+                    fontWeight: 500,
+                  }}
+                  onClick={handleAICancel}
+                >
+                  取消生成
+                </button>
+              )}
+
+              {generatedConfig && !generating && (
+                <button
+                  style={{
+                    width: '100%',
+                    padding: '10px',
+                    border: 'none',
+                    borderRadius: '8px',
+                    background: '#07c160',
+                    color: '#fff',
+                    cursor: 'pointer',
+                    fontSize: '14px',
+                    fontWeight: 500,
+                  }}
+                  onClick={handleAIImport}
+                >
+                  导入此角色
+                </button>
+              )}
+            </div>
           </div>
 
-          <div className="divider" />
-
-          {/* 当前角色信息 */}
-          {currentSkill && (
-            <div className="setting-group">
-              <h3 style={{ fontSize: '15px', fontWeight: 500, marginBottom: '12px' }}>
-                当前角色信息
-              </h3>
-              <div style={{ fontSize: '14px', color: '#666', lineHeight: '1.6' }}>
-                <div>
-                  <strong>名称:</strong> {currentSkill.config.name}
-                </div>
-                <div style={{ marginTop: '4px' }}>
-                  <strong>Prompt:</strong>{' '}
-                  <span style={{ fontSize: '12px' }}>
-                    {currentSkill.config.system_prompt.slice(0, 80)}
-                    {currentSkill.config.system_prompt.length > 80 ? '...' : ''}
-                  </span>
-                </div>
-                {currentSkill.config.voice_style && (
-                  <div style={{ marginTop: '4px' }}>
-                    <strong>语音风格:</strong> {currentSkill.config.voice_style}
-                  </div>
-                )}
-                <div style={{ marginTop: '8px', fontSize: '12px', color: '#999' }}>
-                  可在 <strong>设置</strong> 中修改角色名称、头像、背景、System Prompt 等
-                </div>
-              </div>
-            </div>
-          )}
         </div>
       </div>
     </>

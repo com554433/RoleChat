@@ -23,6 +23,7 @@ export default function MessageBubble({ message }: Props) {
   const [ttsLoading, setTtsLoading] = useState(false);
   const [ttsError, setTtsError] = useState('');
   const [audioPaused, setAudioPaused] = useState(false);
+  const [copied, setCopied] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   const isSelf = message.role === 'user';
@@ -38,6 +39,14 @@ export default function MessageBubble({ message }: Props) {
       }
     };
   }, []);
+
+  // 复制消息内容
+  const handleCopy = () => {
+    navigator.clipboard.writeText(message.content).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    });
+  };
 
   // 请求 TTS 语音朗读
   const handleTts = async () => {
@@ -160,12 +169,6 @@ export default function MessageBubble({ message }: Props) {
     }
   };
 
-  // 格式化时间
-  const formatTime = (ts: number) => {
-    const d = new Date(ts);
-    return `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`;
-  };
-
   return (
     <>
       {/* 时间戳（每隔5分钟以上的间隔显示一次） */}
@@ -262,6 +265,30 @@ export default function MessageBubble({ message }: Props) {
                 TTS失败: {ttsError} — 点击重试
               </div>
             )}
+
+            {/* 复制按钮 */}
+            <div
+              className={`copy-btn ${copied ? 'copied' : ''}`}
+              onClick={handleCopy}
+              title="复制消息"
+            >
+              {copied ? (
+                <>
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                    <polyline points="20 6 9 17 4 12" />
+                  </svg>
+                  已复制
+                </>
+              ) : (
+                <>
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                  </svg>
+                  复制
+                </>
+              )}
+            </div>
           </div>
         </div>
       </div>
