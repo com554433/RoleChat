@@ -1,9 +1,9 @@
-import { useEffect, useRef } from 'react';
+import { memo, useEffect, useRef } from 'react';
 import { useChatStore, useMessages, useCurrentSkill } from '../store/chatStore';
 import MessageBubble from './MessageBubble';
 import type { ChatMessage } from '../types';
 
-export default function MessageList() {
+export default memo(function MessageList() {
   const messages = useMessages();
   const roleConfig = useCurrentSkill()?.config;
   const isLoading = useChatStore((s) => s.isLoading);

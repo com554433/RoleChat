@@ -1,32 +1,30 @@
-import { useRef, useState, useEffect } from 'react';
+import { memo, useRef, useState, useEffect } from 'react';
 import { useChatStore } from '../store/chatStore';
 
 interface Props {
   onClose: () => void;
 }
 
-export default function SettingsPanel({ onClose }: Props) {
-  const {
-    roleConfig,
-    avatarDataUrl,
-    setAvatarDataUrl,
-    backgroundUrl,
-    setBackgroundUrl,
-    voiceSampleDataUrl,
-    setVoiceSampleDataUrl,
-    apiSettings,
-    updateApiSettings,
-    nonTokenPlan,
-    updateNonTokenPlan,
-    showThinking,
-    setShowThinking,
-    isTtsEnabled,
-    toggleTts,
-    theme,
-    toggleTheme,
-    setRoleConfig,
-    clearChat,
-  } = useChatStore();
+export default memo(function SettingsPanel({ onClose }: Props) {
+  const roleConfig = useChatStore((s) => s.roleConfig);
+  const avatarDataUrl = useChatStore((s) => s.avatarDataUrl);
+  const setAvatarDataUrl = useChatStore((s) => s.setAvatarDataUrl);
+  const backgroundUrl = useChatStore((s) => s.backgroundUrl);
+  const setBackgroundUrl = useChatStore((s) => s.setBackgroundUrl);
+  const voiceSampleDataUrl = useChatStore((s) => s.voiceSampleDataUrl);
+  const setVoiceSampleDataUrl = useChatStore((s) => s.setVoiceSampleDataUrl);
+  const apiSettings = useChatStore((s) => s.apiSettings);
+  const updateApiSettings = useChatStore((s) => s.updateApiSettings);
+  const nonTokenPlan = useChatStore((s) => s.nonTokenPlan);
+  const updateNonTokenPlan = useChatStore((s) => s.updateNonTokenPlan);
+  const showThinking = useChatStore((s) => s.showThinking);
+  const setShowThinking = useChatStore((s) => s.setShowThinking);
+  const isTtsEnabled = useChatStore((s) => s.isTtsEnabled);
+  const toggleTts = useChatStore((s) => s.toggleTts);
+  const theme = useChatStore((s) => s.theme);
+  const toggleTheme = useChatStore((s) => s.toggleTheme);
+  const setRoleConfig = useChatStore((s) => s.setRoleConfig);
+  const clearChat = useChatStore((s) => s.clearChat);
 
   const avatarInputRef = useRef<HTMLInputElement>(null);
   const bgInputRef = useRef<HTMLInputElement>(null);

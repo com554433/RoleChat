@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { memo, useState, useRef, useEffect } from 'react';
 import { useChatStore } from '../store/chatStore';
 import { callVoiceClone } from '../services/api';
 import type { ChatMessage } from '../types';
@@ -7,17 +7,16 @@ interface Props {
   message: ChatMessage;
 }
 
-export default function MessageBubble({ message }: Props) {
-  const {
-    avatarDataUrl,
-    roleConfig,
-    showThinking,
-    isTtsEnabled,
-    voiceSampleDataUrl,
-    apiSettings,
-    updateMessageAudio,
-    setMessagePlaying,
-  } = useChatStore();
+export default memo(function MessageBubble({ message }: Props) {
+  const avatarDataUrl = useChatStore((s) => s.avatarDataUrl);
+  const roleConfig = useChatStore((s) => s.roleConfig);
+  const showThinking = useChatStore((s) => s.showThinking);
+  const isTtsEnabled = useChatStore((s) => s.isTtsEnabled);
+  const voiceSampleDataUrl = useChatStore((s) => s.voiceSampleDataUrl);
+  const apiSettings = useChatStore((s) => s.apiSettings);
+  const nonTokenPlan = useChatStore((s) => s.nonTokenPlan);
+  const updateMessageAudio = useChatStore((s) => s.updateMessageAudio);
+  const setMessagePlaying = useChatStore((s) => s.setMessagePlaying);
 
   const [thinkingExpanded, setThinkingExpanded] = useState(true);
   const [ttsLoading, setTtsLoading] = useState(false);
@@ -72,6 +71,7 @@ export default function MessageBubble({ message }: Props) {
         voiceMatch[2], // base64 data
         voiceMatch[1], // format (e.g. wav, mp3)
         apiSettings,
+        nonTokenPlan,
         roleConfig?.voice_style,
       );
 

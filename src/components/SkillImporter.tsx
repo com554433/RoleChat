@@ -1,4 +1,4 @@
-import { useRef, useState, useEffect } from 'react';
+import { memo, useRef, useState, useEffect } from 'react';
 import { useChatStore } from '../store/chatStore';
 import { generateSkill } from '../services/api';
 import type { RoleConfig, SkillImport } from '../types';
@@ -7,8 +7,11 @@ interface Props {
   onClose: () => void;
 }
 
-export default function SkillImporter({ onClose }: Props) {
-  const { addSkill, skills, apiSettings, nonTokenPlan } = useChatStore();
+export default memo(function SkillImporter({ onClose }: Props) {
+  const addSkill = useChatStore((s) => s.addSkill);
+  const skills = useChatStore((s) => s.skills);
+  const apiSettings = useChatStore((s) => s.apiSettings);
+  const nonTokenPlan = useChatStore((s) => s.nonTokenPlan);
   const folderInputRef = useRef<HTMLInputElement>(null);
   const configInputRef = useRef<HTMLInputElement>(null);
   const [importing, setImporting] = useState(false);

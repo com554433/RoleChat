@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { useChatStore } from '../store/chatStore';
 
 interface Props {
@@ -5,8 +6,12 @@ interface Props {
   onSkillClick: () => void;
 }
 
-export default function ChatHeader({ onSettingsClick, onSkillClick }: Props) {
-  const { roleConfig, avatarDataUrl, isLoading, isTtsEnabled, toggleTts } = useChatStore();
+export default memo(function ChatHeader({ onSettingsClick, onSkillClick }: Props) {
+  const roleConfig = useChatStore((s) => s.roleConfig);
+  const avatarDataUrl = useChatStore((s) => s.avatarDataUrl);
+  const isLoading = useChatStore((s) => s.isLoading);
+  const isTtsEnabled = useChatStore((s) => s.isTtsEnabled);
+  const toggleTts = useChatStore((s) => s.toggleTts);
 
   const name = roleConfig?.name || '未加载角色';
   const status = isLoading ? '正在输入...' : '在线';

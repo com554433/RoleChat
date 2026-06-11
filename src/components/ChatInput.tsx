@@ -1,38 +1,37 @@
-import { useState, useRef, useCallback } from 'react';
+import { memo, useState, useRef, useCallback } from 'react';
 import { useChatStore, useMessages } from '../store/chatStore';
 import { callLLM, callVoiceClone } from '../services/api';
-
-let abortController: AbortController | null = null;
 
 function uid(prefix = '') {
   return prefix + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 9);
 }
 
-export default function ChatInput() {
+export default memo(function ChatInput() {
   const [text, setText] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const abortRef = useRef<AbortController | null>(null);
   const messages = useMessages();
-  const {
-    roleConfig,
-    addMessage,
-    updateLastMessage,
-    setLoading,
-    apiSettings,
-    nonTokenPlan,
-    isLoading,
-    isTtsEnabled,
-    voiceSampleDataUrl,
-    updateMessageAudio,
-    setMessagePlaying,
-  } = useChatStore();
 
-  // 自动调整 textarea 高度
+  const roleConfig = useChatStore((s) => s.roleConfig);
+  const addMessage = useChatStore((s) => s.addMessage);
+  const updateLastMessage = useChatStore((s) => s.updateLastMessage);
+  const setLoading = useChatStore((s) => s.setLoading);
+  const apiSettings = useChatStore((s) => s.apiSettings);
+  const nonTokenPlan = useChatStore((s) => s.nonTokenPlan);
+  const isLoading = useChatStore((s) => s.isLoading);
+  const isTtsEnabled = useChatStore((s) => s.isTtsEnabled);
+  const voiceSampleDataUrl = useChatStore((s) => s.voiceSampleDataUrl);
+  const updateMessageAudio = useChatStore((s) => s.updateMessageAudio);
+  const setMessagePlaying = useChatStore((s) => s.setMessagePlaying);
+
+  // 自动调整 textarea 高度（用 rAF 避免 layout thrashing）
   const adjustHeight = useCallback(() => {
     const el = textareaRef.current;
-    if (el) {
+    if (!el) return;
+    requestAnimationFrame(() => {
       el.style.height = 'auto';
       el.style.height = Math.min(el.scrollHeight, 120) + 'px';
-    }
+    });
   }, []);
 
   // TTS 自动朗读 (在 LLM 回复完成后调用)
@@ -95,7 +94,9 @@ export default function ChatInput() {
     addMessage(userMsg);
     setText('');
     if (textareaRef.current) {
-      textareaRef.current.style.height = 'auto';
+      requestAnimationFrame(() => {
+        textareaRef.current!.style.height = 'auto';
+      });
     }
 
     // 构建 API messages
@@ -143,7 +144,7 @@ export default function ChatInput() {
     });
 
     setLoading(true);
-    abortController = new AbortController();
+    abortRef.current = new AbortController();
 
     try {
       await callLLM(
@@ -153,7 +154,7 @@ export default function ChatInput() {
         (content, reasoning) => {
           updateLastMessage(content, reasoning);
         },
-        abortController.signal,
+        abortRef.current.signal,
       );
 
       // LLM回复完成后自动触发TTS朗读
@@ -178,7 +179,7 @@ export default function ChatInput() {
       }
     } finally {
       setLoading(false);
-      abortController = null;
+      abortRef.current = null;
     }
   };
 

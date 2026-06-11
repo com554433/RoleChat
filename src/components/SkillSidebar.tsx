@@ -1,33 +1,38 @@
+import { memo, useMemo } from 'react';
 import { useChatStore } from '../store/chatStore';
 
 interface Props {
   onImportClick: () => void;
 }
 
-export default function SkillSidebar({ onImportClick }: Props) {
-  const { skills, activeSkillId, skillChats, setActiveSkill, removeSkill, theme } =
-    useChatStore();
+export default memo(function SkillSidebar({ onImportClick }: Props) {
+  const skills = useChatStore((s) => s.skills);
+  const activeSkillId = useChatStore((s) => s.activeSkillId);
+  const skillChats = useChatStore((s) => s.skillChats);
+  const setActiveSkill = useChatStore((s) => s.setActiveSkill);
+  const removeSkill = useChatStore((s) => s.removeSkill);
+  const theme = useChatStore((s) => s.theme);
 
-  const getLastMsg = (skillId: string) => {
-    const msgs = skillChats[skillId] || [];
-    for (let i = msgs.length - 1; i >= 0; i--) {
-      if (msgs[i].content?.trim()) {
-        const c = msgs[i].content;
-        return c.length > 25 ? c.slice(0, 25) + '…' : c;
+  // 预计算每个角色的最后消息和时间（避免 render 中重复遍历）
+  const skillMeta = useMemo(() => {
+    const map = new Map<string, { lastMsg: string | null; lastTime: string | null }>();
+    for (const [id, msgs] of Object.entries(skillChats)) {
+      let lastMsg: string | null = null;
+      let lastTime: string | null = null;
+      for (let i = msgs.length - 1; i >= 0; i--) {
+        if (!lastMsg && msgs[i].content?.trim()) {
+          const c = msgs[i].content;
+          lastMsg = c.length > 25 ? c.slice(0, 25) + '…' : c;
+        }
+        if (!lastTime && msgs[i].timestamp) {
+          lastTime = formatTime(msgs[i].timestamp);
+        }
+        if (lastMsg && lastTime) break;
       }
+      map.set(id, { lastMsg, lastTime });
     }
-    return null;
-  };
-
-  const getLastTime = (skillId: string) => {
-    const msgs = skillChats[skillId] || [];
-    for (let i = msgs.length - 1; i >= 0; i--) {
-      if (msgs[i].timestamp) {
-        return formatTime(msgs[i].timestamp);
-      }
-    }
-    return null;
-  };
+    return map;
+  }, [skillChats]);
 
   return (
     <div className={`skill-sidebar ${theme === 'dark' ? 'skill-sidebar-dark' : ''}`}>
@@ -59,8 +64,9 @@ export default function SkillSidebar({ onImportClick }: Props) {
         ) : (
           skills.map((skill) => {
             const isActive = skill.id === activeSkillId;
-            const lastMsg = getLastMsg(skill.id);
-            const lastTime = getLastTime(skill.id);
+            const meta = skillMeta.get(skill.id);
+            const lastMsg = meta?.lastMsg;
+            const lastTime = meta?.lastTime;
             return (
               <div
                 key={skill.id}

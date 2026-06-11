@@ -11,5 +11,15 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     assetsDir: 'assets',
+    target: 'chrome114',                      // Electron 28 Chromium 版本
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          vendor: ['react', 'react-dom'],
+          zustand: ['zustand'],
+        },
+      },
+    },
+    chunkSizeWarningLimit: 600,
   }
 })
