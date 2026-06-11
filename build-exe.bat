@@ -75,6 +75,16 @@ echo ========================================
 echo [OK] Build successful!
 echo EXE: release\win-unpacked\RoleChat.exe
 echo ========================================
-explorer "%~dp0release\win-unpacked"
+
+:: Copy to G drive if it exists
+if exist "G:\" (
+    echo.
+    echo [4/4] Copying to G:\RoleChat...
+    robocopy "%~dp0release\win-unpacked" "G:\RoleChat" /E /NJH /NJS /NP /NS /NC >nul 2>nul
+    echo [OK] Deployed to G:\RoleChat
+    explorer "G:\RoleChat"
+) else (
+    explorer "%~dp0release\win-unpacked"
+)
 echo.
 pause
