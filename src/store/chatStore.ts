@@ -93,7 +93,7 @@ export const useChatStore = create<ChatStore>()(
         enabled: false,
         apiKey: '',
         baseUrl: 'https://api.xiaomimimo.com/v1',
-        model: 'mimo-v2.5',
+        model: 'mimo-v2.5-pro',
         ttsModel: 'mimo-v2.5-tts-voiceclone',
         ttsUseTokenPlan: true,
       },

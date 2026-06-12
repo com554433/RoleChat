@@ -64,7 +64,7 @@
 |------|--------|------|
 | API Key | (需填写) | 服务商密钥，支持粘贴/复制按钮 |
 | API Base URL | (需填写) | 完整 API 地址，例如 `https://api.xiaomimimo.com/v1/chat/completions` |
-| 语言模型 | `mimo-v2.5` | 对话模型 |
+| 语言模型 | `mimo-v2.5-pro` | 对话模型 |
 | 语音模型 | `mimo-v2.5-tts-voiceclone` | 语音合成模型 |
 
 ### 按量计费 API

@@ -488,8 +488,8 @@ export default memo(function SettingsPanel({ onClose }: Props) {
               value={apiSettings.llmModel}
               onChange={(e) => updateApiSettings({ llmModel: e.target.value })}
             >
-              <option value="mimo-v2.5">mimo-v2.5</option>
               <option value="mimo-v2.5-pro">mimo-v2.5-pro</option>
+              <option value="mimo-v2.5">mimo-v2.5</option>
             </select>
 
             <div className="setting-label" style={{ marginTop: '12px' }}>
