@@ -1,79 +1,40 @@
 # RoleChat
 
-基于 MiMo API 的角色扮演桌面应用。
+一款桌面角色扮演聊天软件——输入角色名和作品名，即可自动生成角色并对话。
 
-## 特色功能
+## 能做什么
 
-**CSP 一键蒸馏角色 Skill** · **语音克隆朗读** · **多角色管理** · **流式回复** · **深色/浅色主题** · **桌面 EXE 单文件**
+**一键生成角色** · **语音对话** · **多角色切换** · **深色/浅色主题**
 
 ---
 
 ## 快速开始
 
-```bash
-npm install
-npm run dev              # 浏览器开发
-npm run electron:dev     # Electron 开发
-npm run electron:build   # 构建 EXE
-```
+双击 `RoleChat.exe` 打开，点击左侧 `+` 号导入角色。
 
-## 功能详情
+如果没有角色，可以在导入面板输入：
+- **角色名**：比如"孙悟空"
+- **作品名**：比如"西游记"
 
-### 角色扮演
+点击生成，等待几秒即可开始聊天。
 
-- **CSP 方法论**：一键生成深度 System Prompt（行为镜片、反应规则、表达DNA、核心矛盾、对话样本）
-- **多角色管理**：左侧列表一键切换，聊天记录独立保存
-- **思考过程**：可折叠的 reasoning 区域，查看"内心独白"
-- **开场白**：首次对话自动触发角色 greeting
+## 设置
 
-### 语音克隆 (TTS)
+点击右上角齿轮图标，需要填写：
 
-- 调用 MiMo `mimo-v2.5-tts-voiceclone`，上传声音样本即可复刻音色
-- 支持自动朗读（LLM 回复后自动触发）和手动播放
-- 暂停/恢复控制
+| 项目 | 说明 |
+|------|------|
+| API Key | 服务商提供的密钥 |
+| API 地址 | 服务商提供的网址 |
+| 模型名称 | 对话模型（默认 `mimo-v2.5`） |
 
-### API 配置
+还有一个**按量计费**开关，用于切换备用账号，一般不用管。
 
-- **TokenPlan**：MiMo 预付 credits，`api-key` 认证
-- **按量计费**：独立开关，Key/URL/模型完全隔离
-- TTS 可指定沿用 TokenPlan（适合第三方 API 不含语音克隆）
-- Key 和 URL 均支持粘贴/复制
-
-### 其他
-
-- 流式 SSE 实时打字效果
-- 深色/浅色主题一键切换
-- 自定义头像和聊天背景
-- Electron 打包，不受 CORS 限制
-
-## API 认证
-
-```
-POST {baseUrl}
-Content-Type: application/json
-api-key: {your_api_key}
-```
-
-- TokenPlan 和按量计费均使用 `api-key` Header
-- URL 需填写完整地址，不会自动拼接路径
-
-## 项目结构
-
-```
-src/
-├── components/       # 7 个组件（ChatHeader/Input/Message 等）
-├── services/api.ts   # LLM 流式、Skill 生成、TTS
-├── store/            # Zustand + persist
-├── types/            # TypeScript 类型
-├── App.tsx
-└── main.tsx
-electron/
-└── main.cjs          # Electron 主进程
-```
+语音功能需要上传一段角色声音样本，开启语音后角色会用该声音朗读回复。
 
 ## 技术栈
 
-React 18 · TypeScript · Zustand · Tailwind CSS · Vite 5 · Electron 28 · MiMo V2.5
+React 18 · TypeScript · Zustand · Tailwind CSS · Vite 5 · Electron 28
 
 ## 许可
 
