@@ -1132,4 +1132,10 @@ body {
   color: #4caf50;
 }
 
+/* ====== ASR 语音旋转 ====== */
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
 /* ====== 输入区域 ====== */

@@ -402,6 +402,16 @@ export default memo(function SettingsPanel({ onClose }: Props) {
                   placeholder="mimo-v2.5-tts-voiceclone"
                 />
 
+                <div className="setting-label" style={{ marginTop: '12px' }}>
+                  ASR 语音识别模型
+                </div>
+                <input
+                  className="setting-input"
+                  value={nonTokenPlan.asrModel}
+                  onChange={(e) => updateNonTokenPlan({ asrModel: e.target.value })}
+                  placeholder="mimo-v2.5"
+                />
+
                 <div className="setting-toggle-row" style={{ marginTop: '12px' }}>
                   <label className="setting-toggle-label" htmlFor="tts-use-tokenplan">
                     🎤 TTS 沿用 TokenPlan 配置
@@ -510,6 +520,16 @@ export default memo(function SettingsPanel({ onClose }: Props) {
                 mimo-v2.5-tts-voicedesign
               </option>
             </select>
+
+            <div className="setting-label" style={{ marginTop: '12px' }}>
+              ASR 语音识别模型
+            </div>
+            <input
+              className="setting-input"
+              value={apiSettings.asrModel}
+              onChange={(e) => updateApiSettings({ asrModel: e.target.value })}
+              placeholder="mimo-v2.5"
+            />
 
             {/* 显示思考过程 */}
             <div className="toggle-row" style={{ marginTop: '12px' }}>

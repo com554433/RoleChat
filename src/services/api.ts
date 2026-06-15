@@ -53,6 +53,64 @@ async function readSSEStream(
   }
 }
 
+// ==================== ASR 语音识别 API ====================
+// 使用 MiMo multimodal audio understanding 进行语音转文字
+// 参考: https://platform.xiaomimimo.com/docs/zh-CN/usage-guide/multimodal-understanding/audio-understanding
+export async function callASR(
+  audioBase64: string,
+  audioFormat: string,
+  settings: ApiSettings,
+  nonTokenPlan: NonTokenPlanConfig,
+  signal?: AbortSignal,
+): Promise<string> {
+  const api = resolveApi(settings, nonTokenPlan);
+  // MiMo multimodal 格式：content 为数组，包含 input_audio + text
+  const content: any[] = [
+    {
+      type: 'input_audio',
+      input_audio: {
+        data: `data:audio/${audioFormat};base64,${audioBase64}`,
+      },
+    },
+    {
+      type: 'text',
+      text: '请完整、准确地转写这段音频内容，只输出转写文字，不要加任何解释。如果听不清，输出"（无法识别）"。',
+    },
+  ];
+
+  const body = {
+    model: api.model, // ASR 走 LLM 模型（mimo-v2.5 支持 multimodal audio）
+    messages: [{ role: 'user', content }],
+    max_completion_tokens: 1024,
+  };
+
+  console.log('[ASR]', api.url, 'model=', api.model, 'format=', audioFormat, 'size=', audioBase64.length);
+
+  const resp = await fetch(api.url, {
+    method: 'POST',
+    headers: api.headers,
+    body: JSON.stringify(body),
+    signal,
+  });
+
+  if (!resp.ok) {
+    const errText = await resp.text();
+    let errMsg = `ASR错误 (${resp.status})`;
+    try {
+      const errJson = JSON.parse(errText);
+      errMsg += `: ${errJson.error?.message || errJson.message || errText}`;
+    } catch {
+      errMsg += `: ${errText.slice(0, 300)}`;
+    }
+    errMsg += `\n[${api.model} @ ${api.url}]`;
+    console.error('[ASR Error]', errMsg);
+    throw new Error(errMsg);
+  }
+
+  const json = await resp.json();
+  return json.choices?.[0]?.message?.content?.trim() || '';
+}
+
 // ==================== Skill 蒸馏生成器 ====================
 // 使用聊天同款 LLM（model + apiKey + baseUrl 均从 settings 取值）
 // 融合 CSP (Character Skill Producer) 方法论
