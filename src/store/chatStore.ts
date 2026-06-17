@@ -86,7 +86,6 @@ export const useChatStore = create<ChatStore>()(
         baseUrl: '',
         llmModel: 'mimo-v2.5',
         ttsModel: 'mimo-v2.5-tts-voiceclone',
-        asrModel: 'mimo-v2.5-asr',
         enableThinking: false,
       },
 
@@ -96,7 +95,6 @@ export const useChatStore = create<ChatStore>()(
         baseUrl: 'https://api.xiaomimimo.com/v1',
         model: 'mimo-v2.5-pro',
         ttsModel: 'mimo-v2.5-tts-voiceclone',
-        asrModel: 'mimo-v2.5-asr',
         ttsUseTokenPlan: true,
       },
 

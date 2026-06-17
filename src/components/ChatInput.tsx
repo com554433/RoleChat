@@ -1,6 +1,6 @@
 import { memo, useState, useRef, useCallback } from 'react';
 import { useChatStore, useMessages } from '../store/chatStore';
-import { callLLM, callVoiceClone, callASR } from '../services/api';
+import { callLLM, callVoiceClone } from '../services/api';
 
 function uid(prefix = '') {
   return prefix + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 9);
@@ -8,11 +8,8 @@ function uid(prefix = '') {
 
 export default memo(function ChatInput() {
   const [text, setText] = useState('');
-  const [recording, setRecording] = useState<'idle' | 'recording' | 'transcribing'>('idle');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const abortRef = useRef<AbortController | null>(null);
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const chunksRef = useRef<Blob[]>([]);
   const messages = useMessages();
 
   const roleConfig = useChatStore((s) => s.roleConfig);
@@ -36,72 +33,6 @@ export default memo(function ChatInput() {
       el.style.height = Math.min(el.scrollHeight, 120) + 'px';
     });
   }, []);
-
-  // ==================== 语音录制 ASR ====================
-  const startRecording = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      chunksRef.current = [];
-      const recorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
-      mediaRecorderRef.current = recorder;
-
-      recorder.ondataavailable = (e) => {
-        if (e.data.size > 0) chunksRef.current.push(e.data);
-      };
-
-      recorder.onstop = async () => {
-        // 停止所有轨道
-        stream.getTracks().forEach((t) => t.stop());
-        const blob = new Blob(chunksRef.current, { type: 'audio/webm' });
-        if (blob.size === 0) {
-          setRecording('idle');
-          return;
-        }
-
-        setRecording('transcribing');
-        try {
-          // 转 base64
-          const buf = await blob.arrayBuffer();
-          const bytes = new Uint8Array(buf);
-          let binary = '';
-          for (let i = 0; i < bytes.length; i++) {
-            binary += String.fromCharCode(bytes[i]);
-          }
-          const base64 = btoa(binary);
-
-          const transcribed = await callASR(base64, 'webm', apiSettings, nonTokenPlan);
-          if (transcribed && transcribed !== '（无法识别）') {
-            setText((prev) => (prev ? prev + transcribed : transcribed));
-            // 调整 textarea 高度
-            requestAnimationFrame(() => {
-              const el = textareaRef.current;
-              if (el) {
-                el.style.height = 'auto';
-                el.style.height = Math.min(el.scrollHeight, 120) + 'px';
-              }
-            });
-          }
-        } catch (err) {
-          console.error('[ASR] 语音识别失败:', err);
-        } finally {
-          setRecording('idle');
-        }
-      };
-
-      recorder.start();
-      setRecording('recording');
-    } catch (err) {
-      console.error('[ASR] 无法访问麦克风:', err);
-      alert('无法访问麦克风，请检查浏览器权限设置');
-    }
-  };
-
-  const stopRecording = () => {
-    if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
-      mediaRecorderRef.current.stop();
-      mediaRecorderRef.current = null;
-    }
-  };
 
   // TTS 自动朗读 (在 LLM 回复完成后调用)
   const autoTtsPlay = async (msgId: string) => {
@@ -254,60 +185,6 @@ export default memo(function ChatInput() {
 
   return (
     <div className="input-area">
-      {/* 语音录制按钮 */}
-      <button
-        className="mic-btn"
-        onClick={() => {
-          if (recording === 'recording') {
-            stopRecording();
-          } else if (recording === 'idle') {
-            startRecording();
-          }
-          // transcribing 时不可点击
-        }}
-        disabled={recording === 'transcribing' || isLoading}
-        title={
-          recording === 'idle'
-            ? '语音输入'
-            : recording === 'recording'
-              ? '点击停止录音'
-              : '识别中...'
-        }
-        style={{
-          background:
-            recording === 'recording'
-              ? '#ff4d4f'
-              : recording === 'transcribing'
-                ? '#fadb14'
-                : 'var(--input-bg, #f0f0f0)',
-          color: recording === 'idle' ? '#666' : '#fff',
-          flexShrink: 0,
-          width: '36px',
-          height: '36px',
-          border: 'none',
-          borderRadius: '50%',
-          cursor: recording === 'transcribing' ? 'wait' : 'pointer',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          transition: 'background 0.2s',
-        }}
-      >
-        {recording === 'transcribing' ? (
-          <span style={{ fontSize: '14px', animation: 'spin 1s linear infinite' }}>⏳</span>
-        ) : recording === 'recording' ? (
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-            <rect x="6" y="4" width="4" height="16" rx="2" />
-            <rect x="14" y="4" width="4" height="16" rx="2" />
-          </svg>
-        ) : (
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z" />
-            <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z" />
-          </svg>
-        )}
-      </button>
-
       <textarea
         ref={textareaRef}
         value={text}
@@ -316,7 +193,7 @@ export default memo(function ChatInput() {
           adjustHeight();
         }}
         onKeyDown={handleKeyDown}
-        placeholder={recording === 'recording' ? '正在录音...' : roleConfig ? `和${roleConfig.name}聊天...` : '输入消息...'}
+        placeholder={roleConfig ? `和${roleConfig.name}聊天...` : '输入消息...'}
         rows={1}
       />
       <button
@@ -330,4 +207,4 @@ export default memo(function ChatInput() {
       </button>
     </div>
   );
-});
+}

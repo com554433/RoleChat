@@ -43,6 +43,5 @@ export interface NonTokenPlanConfig {
   baseUrl: string;
   model: string;
   ttsModel: string;
-  asrModel: string;            // ASR 语音识别模型
   ttsUseTokenPlan: boolean;    // 按量计费模式下 TTS 是否沿用 TokenPlan（默认 true，因为语音克隆是 MiMo 特有功能）
 }
