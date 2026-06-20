@@ -36,4 +36,5 @@ npm-debug.log*
 sample-skills/
 
 # Electron 打包
-release/
+release*/
+quick-build.ps1

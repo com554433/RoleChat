@@ -5,6 +5,20 @@ interface Props {
   onImportClick: () => void;
 }
 
+function formatTime(ts: number): string {
+  const d = new Date(ts);
+  const now = new Date();
+  const isToday =
+    d.getFullYear() === now.getFullYear() &&
+    d.getMonth() === now.getMonth() &&
+    d.getDate() === now.getDate();
+
+  if (isToday) {
+    return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+  }
+  return `${d.getMonth() + 1}/${d.getDate()}`;
+}
+
 export default memo(function SkillSidebar({ onImportClick }: Props) {
   const skills = useChatStore((s) => s.skills);
   const activeSkillId = useChatStore((s) => s.activeSkillId);
@@ -108,18 +122,4 @@ export default memo(function SkillSidebar({ onImportClick }: Props) {
       </div>
     </div>
   );
-}
-
-function formatTime(ts: number): string {
-  const d = new Date(ts);
-  const now = new Date();
-  const isToday =
-    d.getFullYear() === now.getFullYear() &&
-    d.getMonth() === now.getMonth() &&
-    d.getDate() === now.getDate();
-
-  if (isToday) {
-    return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
-  }
-  return `${d.getMonth() + 1}/${d.getDate()}`;
-}
+})

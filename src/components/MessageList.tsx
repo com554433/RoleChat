@@ -9,9 +9,9 @@ export default memo(function MessageList() {
   const isLoading = useChatStore((s) => s.isLoading);
   const bottomRef = useRef<HTMLDivElement>(null);
 
-  // 自动滚动到底部
+  // 自动滚动到底部（auto 避免流式输出时 smooth 动画重叠抖动）
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+    bottomRef.current?.scrollIntoView({ behavior: 'auto' });
   }, [messages, isLoading]);
 
   // 空状态
@@ -56,4 +56,4 @@ export default memo(function MessageList() {
       <div ref={bottomRef} />
     </div>
   );
-}
+})

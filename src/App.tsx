@@ -8,15 +8,13 @@ import SkillImporter from './components/SkillImporter';
 import SkillSidebar from './components/SkillSidebar';
 
 export default function App() {
-  const {
-    isSettingsOpen,
-    isSkillImporterOpen,
-    toggleSettings,
-    toggleSkillImporter,
-    backgroundUrl,
-    theme,
-    activeSkillId,
-  } = useChatStore();
+  const isSettingsOpen = useChatStore((s) => s.isSettingsOpen);
+  const isSkillImporterOpen = useChatStore((s) => s.isSkillImporterOpen);
+  const toggleSettings = useChatStore((s) => s.toggleSettings);
+  const toggleSkillImporter = useChatStore((s) => s.toggleSkillImporter);
+  const backgroundUrl = useChatStore((s) => s.backgroundUrl);
+  const theme = useChatStore((s) => s.theme);
+  const activeSkillId = useChatStore((s) => s.activeSkillId);
 
   // 同步 theme 到 <html data-theme>
   useEffect(() => {

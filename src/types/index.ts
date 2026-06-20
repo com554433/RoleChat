@@ -27,21 +27,29 @@ export interface ChatMessage {
   isPlaying?: boolean;
 }
 
+// LLM 提供商
+export type LlmProvider = 'mimo' | 'deepseek';
+
 // API 设置
 export interface ApiSettings {
+  provider: LlmProvider;
   apiKey: string;
   baseUrl: string;
-  llmModel: string;           // mimo-v2.5 或 mimo-v2.5-pro
-  ttsModel: string;           // mimo-v2.5-tts-voiceclone
+  llmModel: string;           // 语言模型
+  ttsModel: string;           // TTS 模型 (仅 MiMo 有效)
+  ttsApiKey: string;          // 语音独立 API Key（不填则沿用上方 apiKey）
+  ttsBaseUrl: string;         // 语音独立 Base URL（不填则沿用上方 baseUrl）
   enableThinking: boolean;
+  reasoningEffort: number;    // 思考强度 0-100，DeepSeek 有效 (high/max)
 }
 
-// 按量计费 API 配置（与 TokenPlan 独立的账号）  
+// 按量计费 API 配置（与 TokenPlan 独立的账号）
 export interface NonTokenPlanConfig {
   enabled: boolean;
+  provider: LlmProvider;
   apiKey: string;
   baseUrl: string;
   model: string;
   ttsModel: string;
-  ttsUseTokenPlan: boolean;    // 按量计费模式下 TTS 是否沿用 TokenPlan（默认 true，因为语音克隆是 MiMo 特有功能）
+  ttsUseTokenPlan: boolean;    // 按量计费模式下 TTS 是否沿用 TokenPlan（语音克隆是 MiMo 特有功能）
 }

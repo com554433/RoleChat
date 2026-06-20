@@ -72,4 +72,4 @@ export default memo(function ChatHeader({ onSettingsClick, onSkillClick }: Props
       </div>
     </div>
   );
-}
+})

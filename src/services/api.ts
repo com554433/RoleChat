@@ -1,28 +1,46 @@
-import type { ApiSettings, RoleConfig, NonTokenPlanConfig } from '../types';
+import type { ApiSettings, RoleConfig, NonTokenPlanConfig, LlmProvider } from '../types';
 
 // ==================== 认证模式适配 ====================
-// TokenPlan 和按量计费都使用 MiMo api-key 认证
 function resolveApi(
   settings: ApiSettings,
   payAsYouGo: NonTokenPlanConfig,
 ) {
   if (payAsYouGo.enabled) {
+    const provider = payAsYouGo.provider || 'mimo';
     const base = payAsYouGo.baseUrl.replace(/\/+$/, '');
+    const isDeepSeek = provider === 'deepseek';
     return {
       apiKey: payAsYouGo.apiKey,
-      url: base, // 非TokenPlan: 用户提供完整 URL，不拼接 chat/completions
+      url: base,
       model: payAsYouGo.model,
       ttsModel: payAsYouGo.ttsModel,
-      headers: { 'Content-Type': 'application/json', 'api-key': payAsYouGo.apiKey },
+      provider,
+      headers: {
+        'Content-Type': 'application/json',
+        ...(isDeepSeek
+          ? { Authorization: `Bearer ${payAsYouGo.apiKey}` }
+          : { 'api-key': payAsYouGo.apiKey }),
+      },
     };
   }
-  const base = (settings.baseUrl || 'https://api.xiaomimimo.com/v1').replace(/\/+$/, '');
+  const provider = settings.provider || 'mimo';
+  const isDeepSeek = provider === 'deepseek';
+  const defaultBase = isDeepSeek
+    ? 'https://api.deepseek.com/v1/chat/completions'
+    : 'https://api.xiaomimimo.com/v1';
+  const base = (settings.baseUrl || defaultBase).replace(/\/+$/, '');
   return {
     apiKey: settings.apiKey,
-    url: base, // 用户提供的 URL 原样使用，不拼接任何路径
+    url: base,
     model: settings.llmModel,
     ttsModel: settings.ttsModel,
-    headers: { 'Content-Type': 'application/json', 'api-key': settings.apiKey },
+    provider,
+    headers: {
+      'Content-Type': 'application/json',
+      ...(isDeepSeek
+        ? { Authorization: `Bearer ${settings.apiKey}` }
+        : { 'api-key': settings.apiKey }),
+    },
   };
 }
 
@@ -54,9 +72,6 @@ async function readSSEStream(
 }
 
 // ==================== Skill 蒸馏生成器 ====================
-// 使用聊天同款 LLM（model + apiKey + baseUrl 均从 settings 取值）
-// 融合 CSP (Character Skill Producer) 方法论
-
 function buildCSPPrompt(characterName: string, workName: string): string {
   return `你是一个角色设计专家。请根据用户指定的角色和作品，生成一个深度角色扮演 System Prompt。
 
@@ -168,7 +183,7 @@ export async function generateSkill(
   if (onChunk) {
     let fullText = '';
     const reader = resp.body?.getReader();
-    if (!reader) throw new Error('No response body');
+    if (!reader) throw new Error('无响应数据');
 
     await readSSEStream(reader, (delta) => {
       const content = delta.content || '';
@@ -219,11 +234,6 @@ function parseGeneratedSkill(rawText: string, fallbackName: string): RoleConfig 
 }
 
 // ==================== 语言模型 API ====================
-// 调用 MiMo 语言模型 (mimo-v2.5 / mimo-v2.5-pro)
-// OpenAI 兼容格式，严格按官方文档
-//
-// 官方文档: https://platform.xiaomimimo.com/docs/zh-CN/quick-start/first-api-call
-//
 export async function callLLM(
   messages: { role: string; content: string }[],
   settings: ApiSettings,
@@ -232,21 +242,37 @@ export async function callLLM(
   signal?: AbortSignal
 ): Promise<{ content: string; reasoning: string }> {
   const api = resolveApi(settings, nonTokenPlan);
-  // 按官方 curl 示例构建请求体
+  const isDeepSeek = api.provider === 'deepseek';
+
   const body: Record<string, unknown> = {
     model: api.model,
     messages,
     max_completion_tokens: 2048,
-    temperature: 0.8,
-    top_p: 0.95,
     stream: !!onChunk,
   };
 
-  // 诊断日志：打出实际请求 URL 和模型
-  const fullUrl = api.url;
-  console.log('[LLM]', fullUrl, 'model=', api.model, 'keyLen=', api.apiKey?.length ?? 0, 'stream=', !!onChunk);
+  // 非思考模式才传 temperature/top_p（思考模式下 MiMo/DeepSeek 都会忽略）
+  const re = settings.reasoningEffort ?? 50;
+  if (re <= 0) {
+    body.temperature = 0.8;
+    body.top_p = 0.95;
+  }
 
-  const resp = await fetch(fullUrl, {
+  // 思考控制
+  if (re > 0) {
+    // thinking 开关（MiMo 和 DeepSeek 都支持）
+    body.thinking = { type: 'enabled' };
+
+    // reasoning_effort 仅 DeepSeek 支持
+    if (isDeepSeek) {
+      body.reasoning_effort = re <= 66 ? 'high' : 'max';
+    }
+  }
+
+  // 诊断日志
+  console.log('[LLM]', api.url, 'provider=', api.provider, 'model=', api.model, 'keyLen=', api.apiKey?.length ?? 0, 'stream=', !!onChunk, 'reasoning=', re > 0 ? 'on' : 'off');
+
+  const resp = await fetch(api.url, {
     method: 'POST',
     headers: api.headers,
     body: JSON.stringify(body),
@@ -262,8 +288,7 @@ export async function callLLM(
     } catch {
       errMsg += `: ${errText.slice(0, 300)}`;
     }
-    // 附加调试信息（显示实际请求 URL）
-    errMsg += `\n[${api.model} @ ${fullUrl}]`;
+    errMsg += `\n[${api.model} @ ${api.url}]`;
     console.error('[LLM Error]', errMsg);
     throw new Error(errMsg);
   }
@@ -273,7 +298,7 @@ export async function callLLM(
     let fullContent = '';
     let fullReasoning = '';
     const reader = resp.body?.getReader();
-    if (!reader) throw new Error('No response body');
+    if (!reader) throw new Error('无响应数据');
 
     await readSSEStream(reader, (delta) => {
       const content = delta.content || '';
@@ -295,15 +320,7 @@ export async function callLLM(
   };
 }
 
-// ==================== 语音克隆 TTS API ====================
-// 调用 MiMo mimo-v2.5-tts-voiceclone 进行音色复制 + 语音合成
-// 参考官方文档: https://platform.xiaomimimo.com/docs/zh-CN/usage-guide/speech-synthesis-v2.5
-//
-// 关键规则:
-// - content 必须是纯字符串，不能用 multimodal 数组
-// - 参考音频通过 data URL 放在 audio.voice 字段
-// - 要合成的文本放在 assistant 消息中
-// - user 消息可选，用于传入风格控制指令
+// ==================== 语音克隆 TTS API（仅 MiMo） ====================
 export async function callVoiceClone(
   text: string,
   voiceSampleBase64: string,
@@ -313,14 +330,28 @@ export async function callVoiceClone(
   voiceStyle?: string,
   signal?: AbortSignal
 ): Promise<string> {
-  // TTS (voice clone) 是 MiMo 特有功能：如果按量计费开启且用户选择沿用 TokenPlan，则走 TokenPlan
-  const safeNtp = nonTokenPlan || { enabled: false, apiKey: '', baseUrl: '', model: '', ttsModel: '', ttsUseTokenPlan: true } as NonTokenPlanConfig;
-  const api = resolveApi(
-    settings,
-    (safeNtp.enabled && safeNtp.ttsUseTokenPlan !== false)
-      ? { ...safeNtp, enabled: false }
-      : safeNtp,
-  );
+  let ttsUrl: string;
+  let ttsKey: string;
+  let ttsHeaders: Record<string, string>;
+
+  // 优先使用独立 TTS API 配置
+  if (settings.ttsApiKey) {
+    ttsUrl = (settings.ttsBaseUrl || settings.baseUrl || 'https://api.xiaomimimo.com/v1').replace(/\/+$/, '');
+    ttsKey = settings.ttsApiKey;
+    ttsHeaders = { 'Content-Type': 'application/json', 'api-key': ttsKey };
+  } else {
+    // 回退到 resolveApi 的逻辑
+    const safeNtp = nonTokenPlan || { enabled: false, apiKey: '', baseUrl: '', model: '', ttsModel: '', ttsUseTokenPlan: true, provider: 'mimo' as const } as NonTokenPlanConfig;
+    const api = resolveApi(
+      settings,
+      (safeNtp.enabled && safeNtp.ttsUseTokenPlan !== false)
+        ? { ...safeNtp, enabled: false }
+        : safeNtp,
+    );
+    ttsUrl = api.url;
+    ttsKey = api.apiKey;
+    ttsHeaders = api.headers;
+  }
 
   const messages: { role: string; content: string }[] = [];
   if (voiceStyle) {
@@ -329,7 +360,7 @@ export async function callVoiceClone(
   messages.push({ role: 'assistant', content: text });
 
   const body = {
-    model: api.ttsModel,
+    model: settings.ttsModel,
     messages,
     audio: {
       format: 'wav',
@@ -337,11 +368,11 @@ export async function callVoiceClone(
     },
   };
 
-  console.log('[TTS]', api.url, 'model=', api.ttsModel, 'keyLen=', api.apiKey?.length ?? 0, 'textLen=', text.length, 'voiceStyle=', voiceStyle || '(none)');
+  console.log('[TTS]', ttsUrl, 'model=', settings.ttsModel, 'keyLen=', ttsKey?.length ?? 0, 'textLen=', text.length, 'voiceStyle=', voiceStyle || '(none)');
 
-  const resp = await fetch(api.url, {
+  const resp = await fetch(ttsUrl, {
     method: 'POST',
-    headers: api.headers,
+    headers: ttsHeaders,
     body: JSON.stringify(body),
     signal,
   });
@@ -355,7 +386,7 @@ export async function callVoiceClone(
     } catch {
       errMsg += `: ${errText.slice(0, 300)}`;
     }
-    errMsg += `\n[${api.ttsModel} @ ${api.url}]`;
+    errMsg += `\n[${settings.ttsModel} @ ${ttsUrl}]`;
     console.error('[TTS Error]', errMsg);
     throw new Error(errMsg);
   }

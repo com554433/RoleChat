@@ -82,15 +82,20 @@ export const useChatStore = create<ChatStore>()(
       isLoading: false,
 
       apiSettings: {
+        provider: 'mimo',
         apiKey: '',
         baseUrl: '',
-        llmModel: 'mimo-v2.5',
+        llmModel: 'mimo-v2.5-pro',
         ttsModel: 'mimo-v2.5-tts-voiceclone',
+        ttsApiKey: '',
+        ttsBaseUrl: '',
         enableThinking: false,
+        reasoningEffort: 50,
       },
 
       nonTokenPlan: {
         enabled: false,
+        provider: 'mimo',
         apiKey: '',
         baseUrl: 'https://api.xiaomimimo.com/v1',
         model: 'mimo-v2.5-pro',
@@ -116,35 +121,39 @@ export const useChatStore = create<ChatStore>()(
           };
         }),
 
-      // 添加角色到列表，如果同名则更新
+      // 添加角色到列表，如果同名则更新（保留旧ID，不丢失聊天记录）
       addSkill: (skill) =>
         set((s) => {
           const existingIdx = s.skills.findIndex(
             (x) => x.config.name === skill.config.name,
           );
           let newSkills: SkillImport[];
+          let effectiveSkill = skill;
           if (existingIdx >= 0) {
+            // 复用旧 ID，保留聊天记录
+            const oldId = s.skills[existingIdx].id;
+            effectiveSkill = { ...skill, id: oldId };
             newSkills = [...s.skills];
-            newSkills[existingIdx] = skill;
+            newSkills[existingIdx] = effectiveSkill;
           } else {
-            newSkills = [...s.skills, skill];
+            newSkills = [...s.skills, effectiveSkill];
           }
 
           // 确保新角色有聊天记录槽位
           const newChats = { ...s.skillChats };
-          if (!newChats[skill.id]) {
-            newChats[skill.id] = [];
+          if (!newChats[effectiveSkill.id]) {
+            newChats[effectiveSkill.id] = [];
           }
 
           // 设置为当前活跃
-          const active = getCurrentSkill({ skills: newSkills, activeSkillId: skill.id });
+          const active = getCurrentSkill({ skills: newSkills, activeSkillId: effectiveSkill.id });
           return {
             skills: newSkills,
             skillChats: newChats,
-            activeSkillId: skill.id,
+            activeSkillId: effectiveSkill.id,
             roleConfig: active?.config || null,
-            avatarDataUrl: skill.avatarDataUrl ?? s.avatarDataUrl,
-            voiceSampleDataUrl: skill.voiceSampleDataUrl ?? s.voiceSampleDataUrl,
+            avatarDataUrl: effectiveSkill.avatarDataUrl ?? s.avatarDataUrl,
+            voiceSampleDataUrl: effectiveSkill.voiceSampleDataUrl ?? s.voiceSampleDataUrl,
           };
         }),
 
@@ -267,12 +276,12 @@ export const useChatStore = create<ChatStore>()(
         skills: state.skills.map((skill) => ({
           ...skill,
           avatarDataUrl: skill.avatarDataUrl
-            ? skill.avatarDataUrl.length < 300000
+            ? skill.avatarDataUrl.length < 2000000
               ? skill.avatarDataUrl
               : ''
             : '',
           voiceSampleDataUrl: skill.voiceSampleDataUrl
-            ? skill.voiceSampleDataUrl.length < 500000
+            ? skill.voiceSampleDataUrl.length < 5000000
               ? skill.voiceSampleDataUrl
               : ''
             : '',
@@ -280,12 +289,12 @@ export const useChatStore = create<ChatStore>()(
         activeSkillId: state.activeSkillId,
         skillChats: state.skillChats,
         avatarDataUrl: state.avatarDataUrl
-          ? state.avatarDataUrl.length < 300000
+          ? state.avatarDataUrl.length < 2000000
             ? state.avatarDataUrl
             : ''
           : '',
         backgroundUrl: state.backgroundUrl
-          ? state.backgroundUrl.length < 500000
+          ? state.backgroundUrl.length < 5000000
             ? state.backgroundUrl
             : ''
           : '',

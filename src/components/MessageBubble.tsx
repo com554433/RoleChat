@@ -98,9 +98,14 @@ export default memo(function MessageBubble({ message }: Props) {
       return;
     }
 
-    // 停止旧的播放
+    // 停止旧的播放（先解绑事件，再释放）
     if (audioRef.current) {
-      audioRef.current.pause();
+      const old = audioRef.current;
+      old.pause();
+      old.onended = null;
+      old.onerror = null;
+      old.onpause = null;
+      old.onplay = null;
       audioRef.current = null;
     }
 
@@ -295,3 +300,4 @@ export default memo(function MessageBubble({ message }: Props) {
     </>
   );
 }
+)
