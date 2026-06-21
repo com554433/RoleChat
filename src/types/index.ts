@@ -33,14 +33,28 @@ export type LlmProvider = 'mimo' | 'deepseek';
 // API 设置
 export interface ApiSettings {
   provider: LlmProvider;
-  apiKey: string;
-  baseUrl: string;
-  llmModel: string;           // 语言模型
+  apiKey: string;             // 通用 API Key (向后兼容)
+  baseUrl: string;            // 通用 Base URL (向后兼容)
+  llmModel: string;           // 语言模型 (向后兼容)
+  // MiMo 专属配置
+  mimoApiKey: string;
+  mimoBaseUrl: string;
+  mimoModel: string;
+  // DeepSeek 专属配置
+  deepseekApiKey: string;
+  deepseekBaseUrl: string;
+  deepseekModel: string;
+  // TTS
   ttsModel: string;           // TTS 模型 (仅 MiMo 有效)
   ttsApiKey: string;          // 语音独立 API Key（不填则沿用上方 apiKey）
   ttsBaseUrl: string;         // 语音独立 Base URL（不填则沿用上方 baseUrl）
   enableThinking: boolean;
   reasoningEffort: number;    // 思考强度 0-100，DeepSeek 有效 (high/max)
+  // ASR 语音识别
+  asrEnabled: boolean;        // 是否启用语音输入
+  asrApiKey: string;          // ASR API Key
+  asrBaseUrl: string;         // ASR API 地址
+  asrModel: string;           // ASR 模型
 }
 
 // 按量计费 API 配置（与 TokenPlan 独立的账号）

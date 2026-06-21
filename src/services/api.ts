@@ -25,21 +25,33 @@ function resolveApi(
   }
   const provider = settings.provider || 'mimo';
   const isDeepSeek = provider === 'deepseek';
+
+  // 优先使用 provider 专属字段，回退到通用字段
+  const effectiveApiKey = isDeepSeek
+    ? (settings.deepseekApiKey || settings.apiKey)
+    : (settings.mimoApiKey || settings.apiKey);
+  const effectiveBaseUrl = isDeepSeek
+    ? (settings.deepseekBaseUrl || settings.baseUrl)
+    : (settings.mimoBaseUrl || settings.baseUrl);
+  const effectiveModel = isDeepSeek
+    ? (settings.deepseekModel || settings.llmModel)
+    : (settings.mimoModel || settings.llmModel);
+
   const defaultBase = isDeepSeek
     ? 'https://api.deepseek.com/v1/chat/completions'
     : 'https://api.xiaomimimo.com/v1';
-  const base = (settings.baseUrl || defaultBase).replace(/\/+$/, '');
+  const base = (effectiveBaseUrl || defaultBase).replace(/\/+$/, '');
   return {
-    apiKey: settings.apiKey,
+    apiKey: effectiveApiKey,
     url: base,
-    model: settings.llmModel,
+    model: effectiveModel,
     ttsModel: settings.ttsModel,
     provider,
     headers: {
       'Content-Type': 'application/json',
       ...(isDeepSeek
-        ? { Authorization: `Bearer ${settings.apiKey}` }
-        : { 'api-key': settings.apiKey }),
+        ? { Authorization: `Bearer ${effectiveApiKey}` }
+        : { 'api-key': effectiveApiKey }),
     },
   };
 }
@@ -399,4 +411,49 @@ export async function callVoiceClone(
   }
 
   return `data:audio/wav;base64,${audioData}`;
+}
+
+// ==================== ASR 语音识别 API ====================
+export async function callASR(
+  audioBlob: Blob,
+  settings: ApiSettings,
+  signal?: AbortSignal,
+): Promise<string> {
+  const baseUrl = (settings.asrBaseUrl || 'https://api.xiaomimimo.com/v1').replace(/\/+$/, '');
+  const apiKey = settings.asrApiKey || settings.mimoApiKey || settings.apiKey;
+  const model = settings.asrModel || 'mimo-v2.5-asr';
+
+  if (!apiKey) throw new Error('请先在设置中配置 ASR API Key');
+
+  const formData = new FormData();
+  formData.append('file', audioBlob, 'audio.wav');
+  formData.append('model', model);
+
+  console.log('[ASR]', baseUrl, 'model=', model, 'keyLen=', apiKey.length);
+
+  const resp = await fetch(`${baseUrl}/audio/transcriptions`, {
+    method: 'POST',
+    headers: {
+      'api-key': apiKey,
+    },
+    body: formData,
+    signal,
+  });
+
+  if (!resp.ok) {
+    const errText = await resp.text();
+    let errMsg = `ASR错误 (${resp.status})`;
+    try {
+      const errJson = JSON.parse(errText);
+      errMsg += `: ${errJson.error?.message || errJson.message || errText}`;
+    } catch {
+      errMsg += `: ${errText.slice(0, 300)}`;
+    }
+    throw new Error(errMsg);
+  }
+
+  const data = await resp.json();
+  const text = data.text || '';
+  if (!text.trim()) throw new Error('未识别到语音内容');
+  return text.trim();
 }

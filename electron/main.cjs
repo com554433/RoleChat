@@ -9,7 +9,7 @@ function createWindow() {
     height: 720,
     minWidth: 640,
     minHeight: 480,
-    title: 'RoleChat - 二次元角色扮演',
+    title: '飞云间',
     icon: path.join(__dirname, '..', 'public', 'favicon.svg'),
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),
@@ -23,11 +23,13 @@ function createWindow() {
   // 授权 clipboard-read 权限，允许 navigator.clipboard.readText()
   session.defaultSession.setPermissionRequestHandler(
     (_webContents, permission, callback) => {
-      if (permission === 'clipboard-read' || permission === 'clipboard-sanitized-write') {
-        callback(true);
-      } else {
-        callback(false);
-      }
+      const allowed = [
+        'clipboard-read',
+        'clipboard-sanitized-write',
+        'media',          // 麦克风/摄像头权限
+        'mediaKeySystem', // 音频录制
+      ];
+      callback(allowed.includes(permission));
     },
   );
 

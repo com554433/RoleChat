@@ -16,6 +16,7 @@ async function parseSkillFromFiles(files: FileList): Promise<SkillImport | null>
   let configFile: File | null = null;
   let avatarFile: File | null = null;
   let voiceFile: File | null = null;
+  const mdFiles: File[] = [];
 
   for (let i = 0; i < files.length; i++) {
     const file = files[i];
@@ -24,8 +25,10 @@ async function parseSkillFromFiles(files: FileList): Promise<SkillImport | null>
 
     if (filename === 'config.json') {
       configFile = file;
-    } else if (filename === 'config.md' || filename.endsWith('.md')) {
-      if (!configFile) configFile = file;
+    } else if (filename.endsWith('.md')) {
+      mdFiles.push(file);
+      // 优先选 config.md，否则选第一个 .md
+      if (filename === 'config.md' || !configFile) configFile = file;
     } else if (filename.startsWith('avatar.') || filename === 'avatar.png' || filename === 'avatar.jpg' || filename === 'avatar.jpeg') {
       avatarFile = file;
     } else if (filename.startsWith('voice') && (filename.endsWith('.wav') || filename.endsWith('.mp3') || filename.endsWith('.ogg'))) {
@@ -49,6 +52,19 @@ async function parseSkillFromFiles(files: FileList): Promise<SkillImport | null>
     config = JSON.parse(text);
     if (!config.name || !config.system_prompt) {
       throw new Error('config.json 必须包含 name 和 system_prompt');
+    }
+  }
+
+  // 多个 .md 文件时，把其他 .md 内容合并到 system_prompt
+  if (mdFiles.length > 1) {
+    const extraParts: string[] = [];
+    for (const f of mdFiles) {
+      if (f !== configFile) {
+        extraParts.push(await f.text());
+      }
+    }
+    if (extraParts.length > 0) {
+      config.system_prompt = (config.system_prompt || '') + '\n\n' + extraParts.join('\n\n');
     }
   }
 
@@ -353,6 +369,7 @@ export default memo(function SkillImporter({ onClose }: Props) {
                 disabled={importing}>
                 选择文件夹
               </button>
+              <div style={{ fontSize: '11px', color: '#999', marginTop: '4px', lineHeight: 1.4 }}>多md文件时使用此选项，自动整合合并</div>
               <input ref={folderInputRef} type="file" {...{ webkitdirectory: '' } as any} directory="" multiple style={{ display: 'none' }} onChange={handleFolderSelect} />
             </div>
 

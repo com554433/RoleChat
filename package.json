@@ -32,9 +32,9 @@
   },
   "build": {
     "appId": "com.rolechat.app",
-    "productName": "RoleChat",
+    "productName": "FeiYunJian",
     "directories": {
-      "output": "release3"
+      "output": "release_portable"
     },
     "files": [
       "dist/**/*",
@@ -43,16 +43,24 @@
     "win": {
       "target": [
         {
-          "target": "portable",
+          "target": "nsis",
           "arch": [
             "x64"
           ]
         }
       ],
-      "signAndEditExecutable": false
+      "signAndEditExecutable": false,
+      "compression": "store"
     },
-    "portable": {
-      "artifactName": "RoleChat.exe"
+    "nsis": {
+      "artifactName": "FeiYunJian-Setup.exe",
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "飞云间",
+      "installerLanguages": ["zh_CN", "en"],
+      "license": "LICENSE.txt"
     }
   }
 }

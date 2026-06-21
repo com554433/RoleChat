@@ -44,10 +44,6 @@ export default memo(function SettingsPanel({ onClose }: Props) {
   const avatarInputRef = useRef<HTMLInputElement>(null);
   const bgInputRef = useRef<HTMLInputElement>(null);
   const voiceInputRef = useRef<HTMLInputElement>(null);
-  const [copiedKey, setCopiedKey] = useState(false);
-  const [copiedUrl, setCopiedUrl] = useState(false);
-  const [copiedNtpKey, setCopiedNtpKey] = useState(false);
-  const [copiedNtpUrl, setCopiedNtpUrl] = useState(false);
   const [editName, setEditName] = useState(roleConfig?.name || '');
   const [editSystemPrompt, setEditSystemPrompt] = useState(roleConfig?.system_prompt || '');
 
@@ -80,18 +76,6 @@ export default memo(function SettingsPanel({ onClose }: Props) {
     return w.electronAPI?.clipboard ?? null;
   };
 
-  const handleCopy = (text: string, setter: (v: boolean) => void) => {
-    if (!text) return;
-    const c = clip();
-    const p = c
-      ? Promise.resolve(c.writeText(text))
-      : navigator.clipboard.writeText(text);
-    p.then(() => {
-      setter(true);
-      setTimeout(() => setter(false), 1500);
-    });
-  };
-
   const handlePaste = (onFill: (v: string) => void) => {
     const c = clip();
     if (c) {
@@ -115,22 +99,7 @@ export default memo(function SettingsPanel({ onClose }: Props) {
     }
   };
 
-  // 切换 provider 时同步更新 model 和 baseUrl
-  const handleProviderChange = (provider: LlmProvider) => {
-    if (provider === 'deepseek') {
-      updateApiSettings({
-        provider,
-        llmModel: 'deepseek-chat',
-        baseUrl: apiSettings.baseUrl || 'https://api.deepseek.com/v1/chat/completions',
-      });
-    } else {
-      updateApiSettings({
-        provider,
-        llmModel: 'mimo-v2.5-pro',
-        baseUrl: apiSettings.baseUrl || 'https://api.xiaomimimo.com/v1',
-      });
-    }
-  };
+
 
   return (
     <>
@@ -305,276 +274,253 @@ export default memo(function SettingsPanel({ onClose }: Props) {
 
           <div className="divider" />
 
+          {/* ====== ASR 语音识别设置 ====== */}
+          <div className="setting-group">
+            <h3 style={{ fontSize: '15px', fontWeight: 500, marginBottom: '12px' }}>
+              🎤 语音识别 (ASR)
+            </h3>
+
+            <div className="toggle-row">
+              <div>
+                <div className="toggle-label">启用语音输入</div>
+                <div className="toggle-desc">在聊天输入框旁显示麦克风按钮，语音转文字</div>
+              </div>
+              <div className={`toggle-switch ${apiSettings.asrEnabled ? 'active' : ''}`}
+                onClick={() => updateApiSettings({ asrEnabled: !apiSettings.asrEnabled })} />
+            </div>
+
+            {apiSettings.asrEnabled && (
+              <>
+                <div className="setting-label" style={{ marginTop: '12px' }}>ASR API Key</div>
+                <div style={{ display: 'flex', gap: '6px' }}>
+                  <input className="setting-input" type="password"
+                    value={apiSettings.asrApiKey || apiSettings.mimoApiKey || apiSettings.apiKey}
+                    onChange={(e) => updateApiSettings({ asrApiKey: e.target.value })}
+                    placeholder="留空则沿用 MiMo API Key"
+                    style={{ flex: 1 }} />
+                  <button className="copy-key-btn" onClick={() => handlePaste((v) => updateApiSettings({ asrApiKey: v }))}>粘贴</button>
+                </div>
+
+                <div className="setting-label" style={{ marginTop: '10px' }}>ASR Base URL</div>
+                <input className="setting-input"
+                  value={apiSettings.asrBaseUrl}
+                  onChange={(e) => updateApiSettings({ asrBaseUrl: e.target.value })}
+                  placeholder="https://api.xiaomimimo.com/v1" />
+
+                <div className="setting-label" style={{ marginTop: '10px' }}>ASR 模型</div>
+                <input className="setting-input"
+                  value={apiSettings.asrModel}
+                  onChange={(e) => updateApiSettings({ asrModel: e.target.value })}
+                  placeholder="mimo-v2.5-asr" />
+
+                <div style={{ marginTop: '8px', padding: '8px 12px', background: '#f0fdf5', borderRadius: '6px', fontSize: '12px', color: '#666' }}>
+                  使用 OpenAI 兼容的 <code style={{ background: '#dcfce7', padding: '1px 4px', borderRadius: '3px' }}>/v1/audio/transcriptions</code> 端点，支持 MiMo 及其他兼容服务
+                </div>
+              </>
+            )}
+          </div>
+
+          <div className="divider" />
+
           {/* ====== 模型设置 ====== */}
           <div className="setting-group">
             <h3 style={{ fontSize: '15px', fontWeight: 500, marginBottom: '12px' }}>
               🤖 模型设置
             </h3>
 
-            {/* 提供商选择 */}
-            <div className="setting-label">API 提供商</div>
-            <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
-              <button
-                onClick={() => {
-                  if (currentProvider !== 'mimo') handleProviderChange('mimo');
-                }}
-                style={{
-                  flex: 1, padding: '8px', border: currentProvider === 'mimo' ? '2px solid #6366f1' : '1px solid #e0e0e0',
-                  borderRadius: '6px', background: currentProvider === 'mimo' ? '#f5f3ff' : '#fff',
-                  cursor: 'pointer', fontSize: '13px', fontWeight: currentProvider === 'mimo' ? 600 : 400,
-                  color: currentProvider === 'mimo' ? '#6366f1' : '#666',
-                }}
-              >
-                🟠 MiMo (小米)
-              </button>
-              <button
-                onClick={() => {
-                  if (currentProvider !== 'deepseek') handleProviderChange('deepseek');
-                }}
-                style={{
-                  flex: 1, padding: '8px', border: currentProvider === 'deepseek' ? '2px solid #6366f1' : '1px solid #e0e0e0',
-                  borderRadius: '6px', background: currentProvider === 'deepseek' ? '#f5f3ff' : '#fff',
-                  cursor: 'pointer', fontSize: '13px', fontWeight: currentProvider === 'deepseek' ? 600 : 400,
-                  color: currentProvider === 'deepseek' ? '#6366f1' : '#666',
-                }}
-              >
-                🔵 DeepSeek
-              </button>
+            {/* ========== DeepSeek 配置 ========== */}
+            <div style={{
+              padding: '12px', border: currentProvider === 'deepseek' ? '2px solid #6366f1' : '1px solid #e0e0e0',
+              borderRadius: '8px', background: currentProvider === 'deepseek' ? '#f5f3ff' : '#fafafa',
+              marginBottom: '12px',
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                <h4 style={{ fontSize: '14px', fontWeight: 600, color: '#6366f1', margin: 0 }}>🔵 DeepSeek</h4>
+                {currentProvider === 'deepseek' ? (
+                  <span style={{ fontSize: '11px', color: '#6366f1', background: '#e0e7ff', padding: '2px 8px', borderRadius: '4px', fontWeight: 500 }}>● 当前使用</span>
+                ) : (
+                  <button onClick={() => updateApiSettings({ provider: 'deepseek' })}
+                    style={{ fontSize: '11px', padding: '3px 10px', border: '1px solid #6366f1', borderRadius: '4px', background: '#fff', color: '#6366f1', cursor: 'pointer' }}>
+                    切换至此
+                  </button>
+                )}
+              </div>
+
+              <div style={{ marginBottom: '4px', padding: '4px 8px', background: '#eef2ff', borderRadius: '4px', fontSize: '11px', color: '#3730a3' }}>
+                认证: <code style={{ background: '#c7d2fe', padding: '1px 4px', borderRadius: '3px' }}>Authorization: Bearer</code>
+              </div>
+
+              <div className="setting-label">API Key</div>
+              <div style={{ display: 'flex', gap: '6px' }}>
+                <input className="setting-input" type="password"
+                  value={apiSettings.deepseekApiKey || apiSettings.apiKey}
+                  onChange={(e) => updateApiSettings({ deepseekApiKey: e.target.value })}
+                  placeholder="sk-xxxx (DeepSeek API Key)"
+                  style={{ flex: 1 }} />
+                <button className="copy-key-btn" onClick={() => handlePaste((v) => updateApiSettings({ deepseekApiKey: v }))}>粘贴</button>
+              </div>
+
+              <div className="setting-label" style={{ marginTop: '10px' }}>Base URL</div>
+              <input className="setting-input"
+                value={apiSettings.deepseekBaseUrl || apiSettings.baseUrl}
+                onChange={(e) => updateApiSettings({ deepseekBaseUrl: e.target.value })}
+                placeholder="https://api.deepseek.com/v1/chat/completions" />
+
+              <div className="setting-label" style={{ marginTop: '10px' }}>语言模型</div>
+              <select className="setting-input"
+                value={apiSettings.deepseekModel || apiSettings.llmModel}
+                onChange={(e) => updateApiSettings({ deepseekModel: e.target.value })}>
+                {DEEPSEEK_MODELS.map((m) => <option key={m} value={m}>{m}</option>)}
+              </select>
             </div>
 
             {/* ========== MiMo 配置 ========== */}
-            {currentProvider === 'mimo' && (
-              <>
-                <h4 style={{ fontSize: '13px', fontWeight: 600, marginBottom: '8px', color: '#6366f1' }}>TokenPlan 配置</h4>
-
-                <div className="setting-label">API Key</div>
-                <div style={{ display: 'flex', gap: '6px' }}>
-                  <input
-                    className="setting-input" type="password"
-                    value={apiSettings.apiKey}
-                    onChange={(e) => updateApiSettings({ apiKey: e.target.value })}
-                    placeholder="输入 MiMo API Key (sk-xxxx)"
-                    style={{ flex: 1 }}
-                  />
-                  <button className="copy-key-btn" onClick={() => handlePaste((v) => updateApiSettings({ apiKey: v }))} title="从剪贴板粘贴">粘贴</button>
-                  <button className={`copy-key-btn ${copiedKey ? 'copied' : ''}`} onClick={() => handleCopy(apiSettings.apiKey, setCopiedKey)} title="复制 API Key">
-                    {copiedKey ? '已复制' : '复制'}
+            <div style={{
+              padding: '12px', border: currentProvider === 'mimo' ? '2px solid #6366f1' : '1px solid #e0e0e0',
+              borderRadius: '8px', background: currentProvider === 'mimo' ? '#f5f3ff' : '#fafafa',
+              marginBottom: '12px',
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                <h4 style={{ fontSize: '14px', fontWeight: 600, color: '#6366f1', margin: 0 }}>🟠 MiMo (小米)</h4>
+                {currentProvider === 'mimo' ? (
+                  <span style={{ fontSize: '11px', color: '#6366f1', background: '#e0e7ff', padding: '2px 8px', borderRadius: '4px', fontWeight: 500 }}>● 当前使用</span>
+                ) : (
+                  <button onClick={() => updateApiSettings({ provider: 'mimo' })}
+                    style={{ fontSize: '11px', padding: '3px 10px', border: '1px solid #6366f1', borderRadius: '4px', background: '#fff', color: '#6366f1', cursor: 'pointer' }}>
+                    切换至此
                   </button>
+                )}
+              </div>
+
+              <div style={{ marginBottom: '4px', padding: '4px 8px', background: '#fef3c7', borderRadius: '4px', fontSize: '11px', color: '#92400e' }}>
+                认证: <code style={{ background: '#fde68a', padding: '1px 4px', borderRadius: '3px' }}>api-key header</code>
+              </div>
+
+              <div className="setting-label">API Key</div>
+              <div style={{ display: 'flex', gap: '6px' }}>
+                <input className="setting-input" type="password"
+                  value={apiSettings.mimoApiKey || apiSettings.apiKey}
+                  onChange={(e) => updateApiSettings({ mimoApiKey: e.target.value })}
+                  placeholder="sk-mimo-xxxx (MiMo API Key)"
+                  style={{ flex: 1 }} />
+                <button className="copy-key-btn" onClick={() => handlePaste((v) => updateApiSettings({ mimoApiKey: v }))}>粘贴</button>
+              </div>
+
+              <div className="setting-label" style={{ marginTop: '10px' }}>Base URL</div>
+              <input className="setting-input"
+                value={apiSettings.mimoBaseUrl || apiSettings.baseUrl}
+                onChange={(e) => updateApiSettings({ mimoBaseUrl: e.target.value })}
+                placeholder="https://api.xiaomimimo.com/v1" />
+
+              <div className="setting-label" style={{ marginTop: '10px' }}>语言模型</div>
+              <select className="setting-input"
+                value={apiSettings.mimoModel || apiSettings.llmModel}
+                onChange={(e) => updateApiSettings({ mimoModel: e.target.value })}>
+                {MIMO_MODELS.map((m) => <option key={m} value={m}>{m}</option>)}
+              </select>
+
+              <div className="setting-label" style={{ marginTop: '10px' }}>TTS 语音模型</div>
+              <select className="setting-input" value={apiSettings.ttsModel}
+                onChange={(e) => updateApiSettings({ ttsModel: e.target.value })}>
+                {MIMO_TTS_MODELS.map((m) => <option key={m} value={m}>{m}</option>)}
+              </select>
+            </div>
+
+            {/* ========== 按量计费 (MiMo) ========== */}
+            <div style={{
+              padding: '12px', border: '1px solid #e0e0e0', borderRadius: '8px', background: '#f9fafb',
+            }}>
+              <h4 style={{ fontSize: '14px', fontWeight: 600, color: '#6366f1', margin: '0 0 4px 0' }}>💳 按量计费 API（独立配置）</h4>
+              <div style={{ fontSize: '11px', color: '#999', marginBottom: '10px' }}>使用独立账号的 API 配置（与 TokenPlan 分开），仅 MiMo 有效</div>
+
+              <div className="toggle-row" style={{
+                padding: '10px 12px', border: nonTokenPlan.enabled ? '1px solid #6366f1' : '1px solid #e0e0e0',
+                borderRadius: '6px', background: nonTokenPlan.enabled ? '#f5f3ff' : '#fff',
+                marginBottom: nonTokenPlan.enabled ? '12px' : '0',
+              }}>
+                <div className="toggle-label" style={{ fontSize: '13px' }}>启用按量计费</div>
+                <div className={`toggle-switch ${nonTokenPlan.enabled ? 'active' : ''}`}
+                  onClick={() => updateNonTokenPlan({ enabled: !nonTokenPlan.enabled })} />
+              </div>
+
+              {nonTokenPlan.enabled && (<>
+                <div className="setting-label">按量计费 API Key</div>
+                <div style={{ display: 'flex', gap: '6px' }}>
+                  <input className="setting-input" type="password"
+                    value={nonTokenPlan.apiKey}
+                    onChange={(e) => updateNonTokenPlan({ apiKey: e.target.value })}
+                    placeholder="sk-mimo-xxxx" style={{ flex: 1 }} />
+                  <button className="copy-key-btn" onClick={() => handlePaste((v) => updateNonTokenPlan({ apiKey: v }))}>粘贴</button>
                 </div>
 
-                <div className="setting-label" style={{ marginTop: '12px' }}>API Base URL</div>
-                <div style={{ display: 'flex', gap: '6px' }}>
-                  <input
-                    className="setting-input"
-                    value={apiSettings.baseUrl}
-                    onChange={(e) => updateApiSettings({ baseUrl: e.target.value })}
-                    placeholder="https://api.xiaomimimo.com/v1"
-                    style={{ flex: 1 }}
-                  />
-                  <button className="copy-key-btn" onClick={() => handlePaste((v) => updateApiSettings({ baseUrl: v }))} title="从剪贴板粘贴">粘贴</button>
-                  <button className={`copy-key-btn ${copiedUrl ? 'copied' : ''}`} onClick={() => handleCopy(apiSettings.baseUrl, setCopiedUrl)} title="复制 Base URL">
-                    {copiedUrl ? '已复制' : '复制'}
-                  </button>
-                </div>
+                <div className="setting-label" style={{ marginTop: '10px' }}>按量计费 Base URL</div>
+                <input className="setting-input"
+                  value={nonTokenPlan.baseUrl}
+                  onChange={(e) => updateNonTokenPlan({ baseUrl: e.target.value })}
+                  placeholder="https://api.xiaomimimo.com/v1" />
 
-                <div className="setting-label" style={{ marginTop: '12px' }}>语言模型</div>
-                <select className="setting-input" value={apiSettings.llmModel}
-                  onChange={(e) => updateApiSettings({ llmModel: e.target.value })}>
+                <div className="setting-label" style={{ marginTop: '10px' }}>按量计费语言模型</div>
+                <select className="setting-input" value={nonTokenPlan.model}
+                  onChange={(e) => updateNonTokenPlan({ model: e.target.value })}>
                   {MIMO_MODELS.map((m) => <option key={m} value={m}>{m}</option>)}
                 </select>
 
-                <div className="setting-label" style={{ marginTop: '12px' }}>语音模型</div>
-                <select className="setting-input" value={apiSettings.ttsModel}
-                  onChange={(e) => updateApiSettings({ ttsModel: e.target.value })}>
+                <div className="setting-label" style={{ marginTop: '10px' }}>按量计费 TTS 语音模型</div>
+                <select className="setting-input" value={nonTokenPlan.ttsModel}
+                  onChange={(e) => updateNonTokenPlan({ ttsModel: e.target.value })}>
                   {MIMO_TTS_MODELS.map((m) => <option key={m} value={m}>{m}</option>)}
                 </select>
 
-                {/* 显示思考过程 */}
-                <div className="toggle-row" style={{ marginTop: '12px' }}>
-                  <div>
-                    <div className="toggle-label">显示思考过程</div>
-                    <div className="toggle-desc">在聊天中查看模型的推理内容</div>
-                  </div>
-                  <div className={`toggle-switch ${showThinking ? 'active' : ''}`} onClick={() => setShowThinking(!showThinking)} />
+                <div className="setting-toggle-row" style={{ marginTop: '12px' }}>
+                  <label className="setting-toggle-label" htmlFor="tts-use-tokenplan">🎤 TTS 沿用 TokenPlan 配置</label>
+                  <label className="toggle-switch">
+                    <input id="tts-use-tokenplan" type="checkbox" checked={nonTokenPlan.ttsUseTokenPlan}
+                      onChange={(e) => updateNonTokenPlan({ ttsUseTokenPlan: e.target.checked })} />
+                    <span className="toggle-slider"></span>
+                  </label>
                 </div>
-
-                {/* 思考强度 (MiMo 仅开/关) */}
-                <div style={{ marginTop: '16px' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-                    <div className="setting-label" style={{ margin: 0 }}>思考强度<span style={{ fontSize: '11px', color: '#999' }}>（MiMo 仅支持开关）</span></div>
-                    <span style={{ fontSize: '12px', color: '#6366f1', fontWeight: 500 }}>
-                      {reasoningLabel(apiSettings.reasoningEffort ?? 50, 'mimo')}
-                    </span>
+                {nonTokenPlan.ttsUseTokenPlan && (
+                  <div style={{ fontSize: '11px', color: '#6366f1', marginTop: '4px' }}>
+                    语音克隆为 MiMo 特有功能，TTS 将使用上方 TokenPlan 配置
                   </div>
-                  <input type="range" min="0" max="100" step="1" value={apiSettings.reasoningEffort ?? 50}
-                    onChange={(e) => updateApiSettings({ reasoningEffort: Number(e.target.value) })}
-                    style={{ width: '100%', accentColor: '#6366f1' }} />
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: '#999', marginTop: '2px' }}>
-                    <span>关闭</span><span>开启</span><span></span>
-                  </div>
-                  <div className="toggle-desc" style={{ marginTop: '4px' }}>MiMo 仅支持开/关，强度档位无效</div>
-                </div>
-
-                <div style={{ borderTop: '1px solid #e5e7eb', margin: '20px 0 0 0' }} />
-
-                {/* 按量计费 */}
-                <h4 style={{ fontSize: '13px', fontWeight: 600, marginBottom: '8px', color: '#6366f1', marginTop: '16px' }}>💳 按量计费 API（独立配置）</h4>
-                <div
-                  className="toggle-row"
-                  style={{
-                    padding: '12px',
-                    border: nonTokenPlan.enabled ? '1px solid #6366f1' : '1px solid #e0e0e0',
-                    borderRadius: '8px',
-                    background: nonTokenPlan.enabled ? '#f5f3ff' : '#f9f9f9',
-                    marginBottom: nonTokenPlan.enabled ? '16px' : '0',
-                  }}
-                >
-                  <div>
-                    <div className="toggle-label" style={{ fontSize: '14px' }}>启用按量计费</div>
-                    <div className="toggle-desc">使用独立账号的 API 配置（与 TokenPlan 分开）</div>
-                  </div>
-                  <div
-                    className={`toggle-switch ${nonTokenPlan.enabled ? 'active' : ''}`}
-                    onClick={() => updateNonTokenPlan({ enabled: !nonTokenPlan.enabled })}
-                  />
-                </div>
-
-                {nonTokenPlan.enabled && (
-                  <>
-                    <div className="setting-label" style={{ marginTop: '8px' }}>按量计费 API Key</div>
-                    <div style={{ display: 'flex', gap: '6px' }}>
-                      <input
-                        className="setting-input" type="password"
-                        value={nonTokenPlan.apiKey}
-                        onChange={(e) => updateNonTokenPlan({ apiKey: e.target.value })}
-                        placeholder="sk-mimo-xxxx"
-                        style={{ flex: 1 }}
-                      />
-                      <button className="copy-key-btn" onClick={() => handlePaste((v) => updateNonTokenPlan({ apiKey: v }))} title="从剪贴板粘贴">粘贴</button>
-                      <button className={`copy-key-btn ${copiedNtpKey ? 'copied' : ''}`} onClick={() => handleCopy(nonTokenPlan.apiKey, setCopiedNtpKey)} title="复制">
-                        {copiedNtpKey ? '已复制' : '复制'}
-                      </button>
-                    </div>
-
-                    <div className="setting-label" style={{ marginTop: '12px' }}>按量计费 Base URL</div>
-                    <div style={{ display: 'flex', gap: '6px' }}>
-                      <input
-                        className="setting-input"
-                        value={nonTokenPlan.baseUrl}
-                        onChange={(e) => updateNonTokenPlan({ baseUrl: e.target.value })}
-                        placeholder="https://api.xiaomimimo.com/v1"
-                        style={{ flex: 1 }}
-                      />
-                      <button className="copy-key-btn" onClick={() => handlePaste((v) => updateNonTokenPlan({ baseUrl: v }))} title="从剪贴板粘贴">粘贴</button>
-                      <button className={`copy-key-btn ${copiedNtpUrl ? 'copied' : ''}`} onClick={() => handleCopy(nonTokenPlan.baseUrl, setCopiedNtpUrl)} title="复制">
-                        {copiedNtpUrl ? '已复制' : '复制'}
-                      </button>
-                    </div>
-
-                    <div className="setting-label" style={{ marginTop: '12px' }}>按量计费语言模型</div>
-                    <select className="setting-input" value={nonTokenPlan.model}
-                      onChange={(e) => updateNonTokenPlan({ model: e.target.value })}>
-                      {MIMO_MODELS.map((m) => <option key={m} value={m}>{m}</option>)}
-                    </select>
-
-                    <div className="setting-label" style={{ marginTop: '12px' }}>按量计费 TTS 语音模型</div>
-                    <select className="setting-input" value={nonTokenPlan.ttsModel}
-                      onChange={(e) => updateNonTokenPlan({ ttsModel: e.target.value })}>
-                      {MIMO_TTS_MODELS.map((m) => <option key={m} value={m}>{m}</option>)}
-                    </select>
-
-                    <div className="setting-toggle-row" style={{ marginTop: '12px' }}>
-                      <label className="setting-toggle-label" htmlFor="tts-use-tokenplan">🎤 TTS 沿用 TokenPlan 配置</label>
-                      <label className="toggle-switch">
-                        <input id="tts-use-tokenplan" type="checkbox" checked={nonTokenPlan.ttsUseTokenPlan}
-                          onChange={(e) => updateNonTokenPlan({ ttsUseTokenPlan: e.target.checked })} />
-                        <span className="toggle-slider"></span>
-                      </label>
-                    </div>
-                    {nonTokenPlan.ttsUseTokenPlan && (
-                      <div style={{ fontSize: '11px', color: '#6366f1', marginTop: '4px' }}>
-                        语音克隆为 MiMo 特有功能，TTS 将使用上方 TokenPlan 配置的 API Key 和 URL
-                      </div>
-                    )}
-                  </>
                 )}
-              </>
-            )}
+              </>)}
+            </div>
 
-            {/* ========== DeepSeek 配置 ========== */}
-            {currentProvider === 'deepseek' && (
-              <>
-                <div style={{ marginBottom: '8px', padding: '6px 10px', background: '#eef2ff', borderRadius: '6px', fontSize: '12px', color: '#3730a3' }}>
-                  认证方式: <code style={{ background: '#c7d2fe', padding: '1px 4px', borderRadius: '3px', fontSize: '11px' }}>Authorization: Bearer</code>
+            {/* ========== 思考设置 ========== */}
+            <div style={{ marginTop: '16px', padding: '12px', border: '1px solid #e0e0e0', borderRadius: '8px', background: '#fafafa' }}>
+              <h4 style={{ fontSize: '14px', fontWeight: 600, color: '#6366f1', margin: '0 0 10px 0' }}>🧠 思考设置</h4>
+
+              <div className="toggle-row">
+                <div>
+                  <div className="toggle-label">显示思考过程</div>
+                  <div className="toggle-desc">在聊天中查看模型的推理内容</div>
                 </div>
+                <div className={`toggle-switch ${showThinking ? 'active' : ''}`} onClick={() => setShowThinking(!showThinking)} />
+              </div>
 
-                <div className="setting-label">API Key</div>
-                <div style={{ display: 'flex', gap: '6px' }}>
-                  <input
-                    className="setting-input" type="password"
-                    value={apiSettings.apiKey}
-                    onChange={(e) => updateApiSettings({ apiKey: e.target.value })}
-                    placeholder="sk-xxxx (DeepSeek API Key)"
-                    style={{ flex: 1 }}
-                  />
-                  <button className="copy-key-btn" onClick={() => handlePaste((v) => updateApiSettings({ apiKey: v }))} title="从剪贴板粘贴">粘贴</button>
-                  <button className={`copy-key-btn ${copiedKey ? 'copied' : ''}`} onClick={() => handleCopy(apiSettings.apiKey, setCopiedKey)} title="复制 API Key">
-                    {copiedKey ? '已复制' : '复制'}
-                  </button>
+              <div style={{ marginTop: '14px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                  <div className="setting-label" style={{ margin: 0 }}>思考强度</div>
+                  <span style={{ fontSize: '12px', color: '#6366f1', fontWeight: 500 }}>
+                    {reasoningLabel(apiSettings.reasoningEffort ?? 50, currentProvider)}
+                  </span>
                 </div>
-
-                <div className="setting-label" style={{ marginTop: '12px' }}>API Base URL</div>
-                <div style={{ display: 'flex', gap: '6px' }}>
-                  <input
-                    className="setting-input"
-                    value={apiSettings.baseUrl}
-                    onChange={(e) => updateApiSettings({ baseUrl: e.target.value })}
-                    placeholder="https://api.deepseek.com/v1/chat/completions"
-                    style={{ flex: 1 }}
-                  />
-                  <button className="copy-key-btn" onClick={() => handlePaste((v) => updateApiSettings({ baseUrl: v }))} title="从剪贴板粘贴">粘贴</button>
-                  <button className={`copy-key-btn ${copiedUrl ? 'copied' : ''}`} onClick={() => handleCopy(apiSettings.baseUrl, setCopiedUrl)} title="复制 Base URL">
-                    {copiedUrl ? '已复制' : '复制'}
-                  </button>
+                <input type="range" min="0" max="100" step="1" value={apiSettings.reasoningEffort ?? 50}
+                  onChange={(e) => updateApiSettings({ reasoningEffort: Number(e.target.value) })}
+                  style={{ width: '100%', accentColor: '#6366f1' }} />
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: '#999', marginTop: '2px' }}>
+                  {currentProvider === 'mimo' ? (
+                    <><span>关闭</span><span>开启</span></>
+                  ) : (
+                    <><span>关闭</span><span>high</span><span>max</span></>
+                  )}
                 </div>
-
-                <div className="setting-label" style={{ marginTop: '12px' }}>语言模型</div>
-                <select className="setting-input" value={apiSettings.llmModel}
-                  onChange={(e) => updateApiSettings({ llmModel: e.target.value })}>
-                  {DEEPSEEK_MODELS.map((m) => <option key={m} value={m}>{m}</option>)}
-                </select>
-
-                <div style={{ marginTop: '8px', padding: '8px 12px', background: '#fff8e1', border: '1px solid #ffe082', borderRadius: '6px', fontSize: '12px', color: '#f57f17' }}>
-                  TTS 语音克隆为 MiMo 特有功能，使用 DeepSeek 时语音功能需切回 MiMo
+                <div className="toggle-desc" style={{ marginTop: '4px' }}>
+                  {currentProvider === 'mimo' ? 'MiMo 仅支持开/关' : 'DeepSeek 支持 high/max 两档'}
                 </div>
-
-                {/* 显示思考过程 */}
-                <div className="toggle-row" style={{ marginTop: '12px' }}>
-                  <div>
-                    <div className="toggle-label">显示思考过程</div>
-                    <div className="toggle-desc">在聊天中查看模型的推理内容</div>
-                  </div>
-                  <div className={`toggle-switch ${showThinking ? 'active' : ''}`} onClick={() => setShowThinking(!showThinking)} />
-                </div>
-
-                {/* 思考强度 (DeepSeek 支持 high/max) */}
-                <div style={{ marginTop: '16px' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-                    <div className="setting-label" style={{ margin: 0 }}>思考强度</div>
-                    <span style={{ fontSize: '12px', color: '#6366f1', fontWeight: 500 }}>
-                      {reasoningLabel(apiSettings.reasoningEffort ?? 50, 'deepseek')}
-                    </span>
-                  </div>
-                  <input type="range" min="0" max="100" step="1" value={apiSettings.reasoningEffort ?? 50}
-                    onChange={(e) => updateApiSettings({ reasoningEffort: Number(e.target.value) })}
-                    style={{ width: '100%', accentColor: '#6366f1' }} />
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: '#999', marginTop: '2px' }}>
-                    <span>关闭</span><span>high</span><span>max</span>
-                  </div>
-                  <div className="toggle-desc" style={{ marginTop: '4px' }}>DeepSeek 支持 high/max 两档，控制推理深度</div>
-                </div>
-              </>
-            )}
+              </div>
+            </div>
           </div>
 
           <div className="divider" />
@@ -602,8 +548,8 @@ export default memo(function SettingsPanel({ onClose }: Props) {
           <div className="setting-group">
             <h3 style={{ fontSize: '15px', fontWeight: 500, marginBottom: '12px' }}>ℹ️ 关于</h3>
             <div style={{ fontSize: '13px', color: '#888', lineHeight: '1.8' }}>
-              <div>RoleChat 二次元角色扮演</div>
-              <div>版本 1.0.0</div>
+              <div>飞云间</div>
+              <div>版本 ver1.5</div>
               <div style={{ marginTop: '4px' }}>基于 Electron + React + TypeScript 构建</div>
             </div>
           </div>

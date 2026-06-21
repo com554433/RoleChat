@@ -86,11 +86,21 @@ export const useChatStore = create<ChatStore>()(
         apiKey: '',
         baseUrl: '',
         llmModel: 'mimo-v2.5-pro',
+        mimoApiKey: '',
+        mimoBaseUrl: '',
+        mimoModel: 'mimo-v2.5-pro',
+        deepseekApiKey: '',
+        deepseekBaseUrl: '',
+        deepseekModel: 'deepseek-v4-pro',
         ttsModel: 'mimo-v2.5-tts-voiceclone',
         ttsApiKey: '',
         ttsBaseUrl: '',
         enableThinking: false,
         reasoningEffort: 50,
+        asrEnabled: false,
+        asrApiKey: '',
+        asrBaseUrl: 'https://api.xiaomimimo.com/v1',
+        asrModel: 'mimo-v2.5-asr',
       },
 
       nonTokenPlan: {
@@ -275,6 +285,9 @@ export const useChatStore = create<ChatStore>()(
       partialize: (state) => ({
         skills: state.skills.map((skill) => ({
           ...skill,
+          config: skill.config?.system_prompt?.length > 100000
+            ? { ...skill.config, system_prompt: skill.config.system_prompt.slice(0, 100000) }
+            : skill.config,
           avatarDataUrl: skill.avatarDataUrl
             ? skill.avatarDataUrl.length < 2000000
               ? skill.avatarDataUrl
@@ -287,6 +300,9 @@ export const useChatStore = create<ChatStore>()(
             : '',
         })),
         activeSkillId: state.activeSkillId,
+        roleConfig: state.roleConfig && state.roleConfig.system_prompt && state.roleConfig.system_prompt.length > 100000
+          ? { ...state.roleConfig, system_prompt: state.roleConfig.system_prompt.slice(0, 100000) }
+          : state.roleConfig,
         skillChats: state.skillChats,
         avatarDataUrl: state.avatarDataUrl
           ? state.avatarDataUrl.length < 2000000
@@ -310,6 +326,15 @@ export const useChatStore = create<ChatStore>()(
         theme: state.theme,
       }),
       version: 2,
+      // 水合完成后，从 skills 中恢复 roleConfig（兼容旧数据）
+      onRehydrateStorage: () => (state) => {
+        if (state && !state.roleConfig && state.activeSkillId && state.skills.length > 0) {
+          const active = state.skills.find((s) => s.id === state.activeSkillId);
+          if (active?.config) {
+            state.roleConfig = active.config;
+          }
+        }
+      },
     },
   ),
 );
